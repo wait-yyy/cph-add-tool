@@ -71,6 +71,50 @@
 
 5. 把 `new.cpp` 改成你自己的代码模板（`tools\pull-contest.js` 会用它生成新题文件）。
 
+## 更新（已经部署的用户）
+
+仓库根目录执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\update.ps1
+```
+
+它会依次做：`git pull --ff-only` → 重装本地插件 → 重新打 CPH 补丁，最后按提示 `Developer: Reload Window` 即可。
+只更新一部分：`-SkipPull`（不 git pull）/ `-NoExtension`（不重装插件）/ `-NoPatch`（不碰 CPH 补丁）。
+本地有改动导致 pull 失败时，先 `git stash` 或提交，再更新。
+
+维护者发布更新：改代码（插件功能变化时改 `package.json` 的 `version`）→ 记录到 `CHANGELOG.md` → `git commit && git push`。建议同时执行 `tools\package-extension.ps1` 生成 `.vsix` 并上传到 GitCode Release，方便没 clone 仓库的人安装。
+
+## 分发 / 上架
+
+| 方式 | 用户要做什么 | 之后怎么更新 |
+| --- | --- | --- |
+| **GitCode 仓库（推荐）** | clone/下载仓库 → 打开文件夹 → 跑 `tools\install-vscode-extension.ps1` | `git pull` + `tools\update.ps1` |
+| **.vsix 安装包** | 从 Release 下载 `.vsix` → VS Code「Install from VSIX」；工具脚本仍需仓库 | 下载安装新 `.vsix` |
+| **VS Code Marketplace** | 扩展市场搜索安装；**工具脚本仍需要 clone 仓库**（插件按工作区 `tools/` 找脚本） | 市场自动更新插件；脚本仍需 git pull |
+
+生成 `.vsix`：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\package-extension.ps1
+# -> dist\cf-training-tools-<version>.vsix
+```
+
+上架 VS Code Marketplace 的前置条件（一次性）：
+
+1. Microsoft 账号 + Azure DevOps 组织，创建 Personal Access Token（scope 勾选 **Marketplace → Manage**）
+2. 打开 https://marketplace.visualstudio.com/manage 创建 Publisher，得到 publisher ID
+3. 用 publisher ID 打包/发布（脚本临时改 `package.json`，发布完自动还原）：
+
+```powershell
+$env:VSCE_PAT = '<Azure DevOps PAT>'
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\package-extension.ps1 -Publish -Publisher <publisher-id>
+```
+
+也可以加 `-Publisher <publisher-id>` 只打包，然后手动在 Marketplace 网页上传 `.vsix`。上架前建议补一个 `LICENSE` 文件（Marketplace 会显示 license 信息）；Open VSX（VSCodium 等）可以用 `npx --yes ovsx publish`。
+
+> 注意：Marketplace 安装的是全局插件，而本项目的脚本/模板在仓库工作区里。想做到「市场装完就能用」，需要把 `tools/` 打包进插件并在首次运行时复制到工作区（尚未实现）。
+
 ## 常用命令
 
 ```powershell

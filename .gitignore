@@ -23,6 +23,11 @@ new1.cpp
 *.obj
 *.out
 
+# ---- packaged extension / release artifacts ----
+/dist/
+*.vsix
+.vscode-test/
+
 # ---- local config / secrets / personal training data ----
 /training/ai-config.json
 /training/cf-handle.txt

@@ -1,0 +1,4 @@
+# Files excluded from the .vsix package (only extension.js / package.json /
+# readme.md / media are needed).
+*.vsix
+.vscodeignore

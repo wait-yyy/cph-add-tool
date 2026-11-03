@@ -47,7 +47,7 @@ function Update-Registry {
         foreach ($entry in $arr) {
             $id = ''
             if ($null -ne $entry.identifier) { $id = [string]$entry.identifier.id }
-            if ($id -eq 'local.cf-training-tools') {
+            if ($id -match '(^|\.)cf-training-tools$') {
                 $found = $true
                 if ($Remove) { continue }
                 $entry.version = $Version
@@ -74,9 +74,9 @@ function Update-Registry {
     }
 }
 
-# Remove every version of the local extension first.
+# Remove every version of the local extension first (any publisher id).
 $oldDirs = @(Get-ChildItem -LiteralPath $extRoot -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -like 'local.cf-training-tools-*' })
+    Where-Object { $_.Name -like '*cf-training-tools-*' })
 foreach ($d in $oldDirs) {
     Remove-Item -LiteralPath $d.FullName -Recurse -Force
     Write-Host ('REMOVED  ' + $d.FullName)

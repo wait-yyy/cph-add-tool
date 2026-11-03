@@ -85,6 +85,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\update.ps1
 
 维护者发布更新：改代码（插件功能变化时改 `package.json` 的 `version`）→ 记录到 `CHANGELOG.md` → `git commit && git push`。建议同时执行 `tools\package-extension.ps1` 生成 `.vsix` 并上传到 GitCode Release，方便没 clone 仓库的人安装。
 
+维护者提交与推送（带密钥/个人文件拦截）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\ship.ps1 -Message "说明这次改了什么"
+```
+
+会先做安全检查（拦截 `training/ai-config.json`、CF handle、plan/redo、`.build/`、`dist/`、`.vsix`、`sk-...` 形式的 key），再 `git add -A` → commit → push。`-DryRun` 只检查不提交，`-NoPush` 只提交不推送。
+
 ## 分发 / 上架
 
 | 方式 | 用户要做什么 | 之后怎么更新 |

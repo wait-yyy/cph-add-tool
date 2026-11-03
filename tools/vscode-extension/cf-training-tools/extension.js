@@ -15,6 +15,7 @@ let aiStatusBar = null;
 let sidebarProvider = null;
 let samplesProvider = null;
 let lastPreviewed = null;
+let lastActiveCpp = null;
 let layoutingCpp = null;
 
 function workspaceRoot() {
@@ -288,10 +289,15 @@ function relFromRoot(fsPath) {
 
 function activeCppPath() {
     const ed = vscode.window.activeTextEditor;
-    if (!ed) return null;
-    const fsPath = ed.document.uri.fsPath;
-    if (!/\.(cpp|cc|cxx)$/i.test(fsPath)) return null;
-    return fsPath;
+    if (ed && ed.document) {
+        const fsPath = ed.document.uri.fsPath;
+        if (/\.(cpp|cc|cxx)$/i.test(fsPath)) {
+            lastActiveCpp = fsPath;
+            return fsPath;
+        }
+        return null;
+    }
+    return lastActiveCpp || null;
 }
 
 function siblingMarkdown(cppFsPath) {
@@ -1137,12 +1143,11 @@ function samplesHtml(state) {
         '<div class="muted">自定义测试保存在同目录 题号.custom-tests.json；样例修改保存在 题号.sample-overrides.json</div>' +
         '<div id="cases">' + cases + '</div>' +
         '<script nonce="' + nonce + '">const vscode=acquireVsCodeApi();' +
-        'function val(i,c){var el=document.querySelector("."+c+"[data-i=\""+i+"\"]");return el?el.value:"";}' +
-        'function collectEdits(){var vals=[];Array.prototype.forEach.call(document.querySelectorAll("textarea.tin"),function(el){var i=el.getAttribute("data-i");var out=document.querySelector(".tout[data-i=\""+i+"\"]");vals.push({kind:el.getAttribute("data-kind"),index:Number(el.getAttribute("data-index")),input:el.value,output:out?out.value:""});});return vals;}' +
+        'function valById(i,c){var els=document.querySelectorAll("textarea."+c);for(var k=0;k<els.length;k++){if(els[k].getAttribute("data-i")==i)return els[k].value;}return "";}' +
+        'function collectEdits(){var vals=[];var ins=document.querySelectorAll("textarea.tin");for(var k=0;k<ins.length;k++){var i=ins[k].getAttribute("data-i");vals.push({kind:ins[k].getAttribute("data-kind"),index:Number(ins[k].getAttribute("data-index")),input:ins[k].value,output:valById(i,"tout")});}return vals;}' +
         'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run",values:collectEdits()});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
-        'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:val(i,"tin"),output:val(i,"tout")});});});' +
-
+        'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:valById(i,"tin"),output:valById(i,"tout")});});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
         '</script></body></html>';
 }
@@ -1179,6 +1184,7 @@ class SamplesViewProvider {
         view.webview.onDidReceiveMessage(async function (msg) {
             if (!msg) return;
             try {
+                if (output) output.appendLine('[samples] message: ' + JSON.stringify(msg).slice(0, 200));
                 if (msg.command === 'run') return await self.runAll(msg);
                 if (msg.command === 'addCustom') return await self.addCustom(msg);
                 if (msg.command === 'deleteCustom') return await self.deleteCustom(msg);
@@ -1191,7 +1197,7 @@ class SamplesViewProvider {
         this.refresh();
     }
     async refresh() {
-        this.cpp = activeCppPath() || '';
+        this.cpp = activeCppPath() || lastActiveCpp || '';
         this.source = '';
         this.customSource = '';
         this.tests = [];
@@ -1261,6 +1267,7 @@ class SamplesViewProvider {
         this.message = '正在编译并运行测试…';
         this.render();
         const res = await runNode('sample-tests.js', [this.cpp], '运行样例自测…', { cancellable: true });
+        if (output) output.appendLine('[samples] run code=' + res.code + ' cancelled=' + !!res.cancelled + ' err=' + String(res.stderr || '').slice(0, 200));
         if (res.cancelled) {
             this.message = '已取消';
             this.render();
@@ -1314,7 +1321,14 @@ class SamplesViewProvider {
         this.render();
     }
     async runOne(msg) {
-        if (!this.cpp) return;
+        if (!this.cpp) {
+            this.cpp = activeCppPath() || lastActiveCpp || '';
+            if (!this.cpp) {
+                this.message = '请先打开一道题的 .cpp 文件';
+                this.render();
+                return;
+            }
+        }
         const kind = msg.kind === 'custom' ? 'custom' : 'sample';
         const idx = Number(msg.index);
         if (!isFinite(idx) || idx < 0) return;
@@ -1325,6 +1339,7 @@ class SamplesViewProvider {
         this.render();
         const args = [this.cpp, kind === 'custom' ? '--only-custom' : '--only-sample', String(idx)];
         const res = await runNode('sample-tests.js', args, '运行单个测试…', { cancellable: true });
+        if (output) output.appendLine('[samples] runOne code=' + res.code + ' cancelled=' + !!res.cancelled + ' err=' + String(res.stderr || '').slice(0, 200));
         if (res.cancelled) {
             this.message = '已取消';
             this.render();
@@ -1366,7 +1381,14 @@ class SamplesViewProvider {
         this.render();
     }
     async addCustom(msg) {
-        if (!this.cpp) return this.refresh();
+        if (!this.cpp) {
+            this.cpp = activeCppPath() || lastActiveCpp || '';
+            if (!this.cpp) {
+                this.message = '请先打开一道题的 .cpp 文件';
+                this.render();
+                return;
+            }
+        }
         const input = String(msg.input == null ? '' : msg.input);
         const output = String(msg.output == null ? '' : msg.output);
         if (!input.trim() || !output.trim()) {
@@ -1455,8 +1477,11 @@ function activate(context) {
     try {
         if (vscode.window.onDidChangeActiveTextEditor) {
             context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(function (ed) {
-                if (ed && ed.document && ed.document.languageId === 'cpp' && samplesProvider) {
-                    try { samplesProvider.refresh(); } catch (e) { /* ignore */ }
+                if (ed && ed.document && ed.document.languageId === 'cpp') {
+                    lastActiveCpp = ed.document.uri.fsPath;
+                    if (samplesProvider) {
+                        try { samplesProvider.refresh(); } catch (e) { /* ignore */ }
+                    }
                 }
             }));
         }

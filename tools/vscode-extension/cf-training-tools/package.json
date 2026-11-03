@@ -2,7 +2,7 @@
     "name": "cf-training-tools",
     "displayName": "CF Training Tools",
     "description": "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version": "0.6.6",
+    "version": "0.6.7",
     "publisher": "waityyy",
     "repository": {
         "type": "git",
@@ -140,11 +140,6 @@
             {
                 "command": "cfTraining.statementNow",
                 "title": "重新抓取当前题目题面",
-                "category": "CF 训练"
-            },
-            {
-                "command": "cfTraining.regenerateAll",
-                "title": "重新生成全部题面 md",
                 "category": "CF 训练"
             },
             {

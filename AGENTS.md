@@ -105,7 +105,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress -Solutio
 - `-D DEBUG`、`-D CPH` 在 CPH 编译时一定存在；`cp.ps1` 为了对齐也加了这两个宏。
 - CPH 的样例缓存与源文件同级：`.cph/.<完整文件名>_<md5(源文件完整路径)>.prob`（JSON，字段见 §2）。**挪动/改名源文件后 hash 变化，缓存失联**。
 - 本机 CPH 已打过“按比赛建目录”补丁（`tools\cph-folder-patch.ps1`）：拉题时源文件写到 `codeforces/<比赛>/<题号>.cpp`，`.cph/` 和 `.bin` 跟着进同目录。扩展升级/重装会用新文件覆盖 `dist\extension.js` → 补丁失效，重跑 `-Action apply` 即可（`-Action status` 查看、`-Action revert` 回滚；备份在扩展目录 `dist\extension.js.cph-folder-orig`）。改完需重载 VS Code 窗口才生效。
-- 题面 md 是拉题时自动生成的**中英对照**版本：补丁 spawn `node tools\cph-statement.js` 抓原题页面→Markdown，再翻译成中文（**配置了 `training\ai-config.json` 时优先用 AI 翻译，否则/失败时退回 Bing**；每段英文后跟一行中文；样例代码块、公式 `$...$` 保持原样），写盘后扩展自动 `markdown.showPreviewToSide` 打开预览。**自动预览只对当前正在编辑的那道题生效**（整场拉题不会弹一堆；30 秒内同一份 md 不重复开），可用 VS Code 设置 `cf-training-tools.autoPreview=false` 关闭。**支持 CF 正赛、AtCoder、洛谷、牛客**；Gym/私有题需登录（可设置 CF 登录 Cookie）。翻译失败会退回纯英文，失败原因看 `.build\cph-statement.log`。批量补/重抓：`powershell -NoProfile -ExecutionPolicy Bypass -File tools\cph-statements.ps1 [-Solution <cpp>] [-Force]`；手动抓单题可加 `--no-translate` 只出英文、`--no-ai` 强制走 Bing。**整场抓取**用 `node tools\pull-contest.js <比赛链接>`（Codeforces/AtCoder/洛谷/牛客；CF 正赛 API 枚举、题面 403 时用洛谷镜像 `CF<id><index>`；洛谷比赛题自动带 `?contestId=`，牛客按 A..Z 自动探测题号），会同时建 cpp 和 `.cph` 样例缓存。Gym/私有比赛需登录（设置 Cookie 后可抓）。
+- 题面 md 是拉题时自动生成的**中英对照**版本：补丁 spawn `node tools\cph-statement.js` 抓原题页面→Markdown，再翻译成中文（**配置了 `training\ai-config.json` 时优先用 AI 翻译，否则/失败时退回 Bing**；每段英文后跟一行中文；样例代码块、公式 `$...$` 保持原样），写盘后扩展自动 `markdown.showPreviewToSide` 打开预览。**自动预览只对当前正在编辑的那道题生效**（整场拉题不会弹一堆；30 秒内同一份 md 不重复开），可用 VS Code 设置 `cf-training-tools.autoPreview=false` 关闭。**支持 CF 正赛、AtCoder、洛谷、牛客**；Gym/私有题需登录（可设置 CF 登录 Cookie）。翻译失败会退回纯英文，失败原因看 `.build\cph-statement.log`。单题重抓：`powershell -NoProfile -ExecutionPolicy Bypass -File tools\cph-statements.ps1 -Solution <cpp> -Force`；手动抓单题可加 `--no-translate` 只出英文、`--no-ai` 强制走 Bing。**整场抓取**用 `node tools\pull-contest.js <比赛链接>`（Codeforces/AtCoder/洛谷/牛客；CF 正赛 API 枚举、题面 403 时用洛谷镜像 `CF<id><index>`；洛谷比赛题自动带 `?contestId=`，牛客按 A..Z 自动探测题号），会同时建 cpp 和 `.cph` 样例缓存。Gym/私有比赛需登录（设置 Cookie 后可抓）。
 
 ## 5. 造题流程（出题/验题）
 
@@ -155,7 +155,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress -Solutio
 - 不要用 `-fsanitize=*`；不要指望 `ulimit`；线程栈默认也是 1MB，`-Wl,--stack` 只作用于主线程。
 - PS 5.1 里 `$args`、`$input`、`$error` 是自动变量，写脚本别拿它们当普通变量名。
 - CPH 扩展自动升级后，`codeforces/<比赛>/` 自动建目录的补丁会失效（`-Action status` 显示 `PATCHED no`）→ 重跑 `tools\cph-folder-patch.ps1`，别以为是 CPH 坏了。
-- 题面 md 没生成 / 没翻译成中文 / 没自动开预览：先看 `.build\cph-statement.log`。Gym/需要登录的题抓不到是正常的；其他多半是 Cloudflare 或 Bing 翻译限流，用 `tools\cph-statements.ps1 -Solution <cpp> -Force` 重跑（必要时把 md 删掉重来）。抓取依赖 `node`、Windows 自带的 `curl.exe` 和 `cn.bing.com` 可访问。
+- 题面 md 没生成 / 没翻译成中文 / 没自动开预览：先看 `.build\cph-statement.log`。Gym/需要登录的题抓不到是正常的；其他多半是 Cloudflare 或 Bing 翻译限流，用 `tools\cph-statements.ps1 -Solution <cpp> -Force` 重跑（单题）（必要时把 md 删掉重来）。抓取依赖 `node`、Windows 自带的 `curl.exe` 和 `cn.bing.com` 可访问。
 
 ## 7. 汇报与自检
 

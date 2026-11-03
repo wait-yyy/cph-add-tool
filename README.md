@@ -204,7 +204,7 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 
 - **AI 助手**：AI 提示（当前题）、问 AI、AI 复盘、AI 翻译题面、设置 AI API、测试连接、在 VS Code 设置中编辑
 - **训练**：抓取整场比赛（洛谷/牛客/AtCoder）、生成/刷新周题单、复盘最近一场、复盘指定比赛
-- **题面**：打开当前题面预览、重新抓取当前题面、重新生成全部题面 md
+- **题面**：打开当前题面预览、重新抓取当前题面
 - **代码**：编译并跑样例、只编译
 - **设置/维护**：设置 CF handle、CPH 补丁状态/重打/回滚、打开训练手册
 
@@ -233,7 +233,7 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 │  ├─ mkdata.ps1             # 造题数据生成与校验
 │  ├─ cph-folder-patch.ps1   # CPH 补丁：按比赛建目录 + 拉题抓题面
 │  ├─ cph-statement.js       # 单题题面 → md（CF/AtCoder/洛谷/牛客，AI/Bing 翻译）
-│  ├─ cph-statements.ps1     # 批量补/重抓题面
+│  ├─ cph-statements.ps1     # 单题题面重抓（插件内部用）
 │  ├─ pull-contest.js        # 整场抓取（AtCoder/洛谷/牛客）
 │  ├─ cf-plan.ps1            # 周题单（CF+AtCoder+洛谷弱项选题）
 │  ├─ cf-review.ps1          # 赛后复盘数据

@@ -162,7 +162,7 @@ function runNode(scriptName, args, title, options) {
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: title || 'CF 训练工具',
-        cancellable: !!options.cancellable
+        cancellable: options.cancellable !== false
     }, function (progress, token) {
         return new Promise(function (resolve) {
             let stdout = '';
@@ -202,7 +202,8 @@ function escapeHtml(s) {
         .replace(/"/g, '&quot;');
 }
 
-function runPowerShell(scriptName, args, title) {
+function runPowerShell(scriptName, args, title, options) {
+    options = options || {};
     const root = workspaceRoot();
     if (!root) return Promise.reject(new Error('请先打开算竞工作区文件夹'));
     const scriptPath = toolsPath(scriptName);
@@ -217,16 +218,26 @@ function runPowerShell(scriptName, args, title) {
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: title || 'CF 训练工具',
-        cancellable: false
-    }, function () {
+        cancellable: options.cancellable !== false
+    }, function (progress, token) {
         return new Promise(function (resolve) {
             let stdout = '';
             let stderr = '';
             let child;
+            let cancelled = false;
+            let killTimer = null;
             try {
                 child = spawn('powershell.exe', fullArgs, { cwd: root, windowsHide: true });
             } catch (e) {
-                return resolve({ code: -1, stdout: '', stderr: String(e) });
+                return resolve({ code: -1, stdout: '', stderr: String(e), cancelled: false });
+            }
+            if (token && token.onCancellationRequested) {
+                token.onCancellationRequested(function () {
+                    cancelled = true;
+                    if (progress) { try { progress.report({ message: '正在中断…' }); } catch (e) { /* ignore */ } }
+                    killProcessTree(child.pid);
+                    killTimer = setTimeout(function () { killProcessTree(child.pid); }, 1500);
+                });
             }
             child.stdout.on('data', function (d) {
                 const s = d.toString();
@@ -239,10 +250,11 @@ function runPowerShell(scriptName, args, title) {
                 if (output) output.append(s);
             });
             child.on('error', function (e) {
-                resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e) });
+                resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e), cancelled: cancelled });
             });
             child.on('close', function (code) {
-                resolve({ code: code, stdout: stdout, stderr: stderr });
+                if (killTimer) clearTimeout(killTimer);
+                resolve({ code: code, stdout: stdout, stderr: stderr, cancelled: cancelled || !!(token && token.isCancellationRequested) });
             });
         });
     });
@@ -306,6 +318,10 @@ function parseOkPaths(stdout) {
 }
 
 function reportFailure(action, result) {
+    if (result && result.cancelled) {
+        vscode.window.showInformationMessage('已取消：' + action);
+        return;
+    }
     const msg = (result && result.stderr ? result.stderr : '').trim();
     vscode.window.showErrorMessage((action + '失败') + (msg ? ('：' + msg.split(/\r?\n/)[0]) : '，详见输出面板'));
     if (output) output.show(true);
@@ -579,16 +595,12 @@ async function cmdStatementNow() {
     reportFailure('抓取题面', result);
 }
 
-async function cmdRegenerateAll() {
-    const result = await runPowerShell('cph-statements.ps1', ['-Force'], '重新生成全部题面 md（含翻译，较慢）…');
-    if (result.code !== 0) return reportFailure('重新生成题面', result);
-    vscode.window.showInformationMessage('全部题面已重新生成（详见输出面板）');
-}
 
 async function cmdSamples() {
     const cpp = activeCppPath();
     if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
     const result = await runPowerShell('cp.ps1', ['samples', '-Solution', relFromRoot(cpp)], '编译并跑样例…');
+    if (result.cancelled) return vscode.window.showInformationMessage('已取消：跑样例');
     if (result.code === 0) vscode.window.showInformationMessage('样例全部通过');
     else if (result.code === 2) vscode.window.showWarningMessage('没有样例缓存（先拉一次题）');
     else vscode.window.showErrorMessage('样例失败，详见输出面板');
@@ -834,7 +846,6 @@ async function cmdMenu() {
         { label: '$(refresh) 重新抓取当前题面', command: 'cfTraining.statementNow' },
         { label: '$(run-all) 编译并跑样例', command: 'cfTraining.samples' },
         { label: '$(tools) 只编译', command: 'cfTraining.build' },
-        { label: '$(files) 重新生成全部题面 md', command: 'cfTraining.regenerateAll' },
         { label: '$(account) 设置 CF 登录 Cookie（Gym/私有比赛）', command: 'cfTraining.cfLogin' },
         { label: '$(search) 检查 CF 登录状态', command: 'cfTraining.cfLoginCheck' },
         { label: '$(trash) 清除 CF 登录 Cookie', command: 'cfTraining.cfLogout' },
@@ -926,7 +937,6 @@ function sidebarHtml() {
             items: [
                 { cmd: 'cfTraining.statementOpen', label: '📖 打开当前题面预览' },
                 { cmd: 'cfTraining.statementNow', label: '🔄 重新抓取当前题面' },
-                { cmd: 'cfTraining.regenerateAll', label: '🗂 重新生成全部题面 md' }
             ]
         },
         {
@@ -1102,7 +1112,6 @@ function activate(context) {
         'cfTraining.reviewInput': cmdReviewInput,
         'cfTraining.statementOpen': cmdStatementOpen,
         'cfTraining.statementNow': cmdStatementNow,
-        'cfTraining.regenerateAll': cmdRegenerateAll,
         'cfTraining.samples': cmdSamples,
         'cfTraining.build': cmdBuild,
         'cfTraining.setHandle': cmdSetHandle,

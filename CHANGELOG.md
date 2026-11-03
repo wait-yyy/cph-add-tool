@@ -1,5 +1,10 @@
 # 更新日志
 
+## 0.6.7
+
+- 所有命令的进度通知都支持**停止按钮**（`runNode` / `runPowerShell` 默认 cancellable，取消时终止子进程树）
+- 移除「重新生成全部题面 md」命令/按钮（批量重抓功能删除；单题重抓仍可用）
+
 ## 0.6.6
 
 - Codeforces Gym/私有比赛登录支持：面板「🍪 设置 CF 登录 Cookie」粘贴浏览器 Cookie，自动验证 handle

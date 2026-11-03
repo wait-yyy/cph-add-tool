@@ -32,7 +32,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 | 训练 | 复盘最近一场 / 复盘指定比赛… | 跑 `cf-review.ps1`，打开 `review.md` |
 | 题面 | 打开当前题面预览 | 打开当前 cpp 同目录 `<题号>.md` |
 | 题面 | 重新抓取当前题面 | 跑 `cph-statements.ps1 -Solution <当前 cpp> -Force` |
-| 题面 | 重新生成全部题面 md | 批量重抓+重翻译 |
 | 代码 | 编译并跑样例 / 只编译 | 跑 `cp.ps1 samples/build` |
 | 设置 | 设置 CF handle | 写 `training/cf-handle.txt` |
 | 维护 | 查看 / 重新打 / 回滚 CPH 补丁 | 跑 `cph-folder-patch.ps1` |

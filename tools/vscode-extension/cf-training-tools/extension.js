@@ -13,6 +13,7 @@ let output = null;
 let statusBar = null;
 let aiStatusBar = null;
 let sidebarProvider = null;
+let samplesProvider = null;
 let lastPreviewed = null;
 let layoutingCpp = null;
 
@@ -191,6 +192,25 @@ function runNode(scriptName, args, title, options) {
                 resolve({ code: code, stdout: stdout, stderr: stderr, cancelled: cancelled || !!(token && token.isCancellationRequested) });
             });
         });
+    });
+}
+
+function runNodeQuiet(scriptName, args) {
+    const root = workspaceRoot();
+    const scriptPath = toolsPath(scriptName);
+    if (!root || !scriptPath || !fs.existsSync(scriptPath)) {
+        return Promise.resolve({ code: -1, stdout: '', stderr: '脚本不存在: ' + String(scriptPath) });
+    }
+    return new Promise(function (resolve) {
+        let stdout = '';
+        let stderr = '';
+        let child;
+        try { child = spawn('node', [scriptPath].concat(args || []), { cwd: root, windowsHide: true }); }
+        catch (e) { return resolve({ code: -1, stdout: '', stderr: String(e) }); }
+        child.stdout.on('data', function (d) { stdout += d.toString(); });
+        child.stderr.on('data', function (d) { stderr += d.toString(); });
+        child.on('error', function (e) { resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e) }); });
+        child.on('close', function (code) { resolve({ code: code, stdout: stdout, stderr: stderr }); });
     });
 }
 
@@ -596,6 +616,11 @@ async function cmdStatementNow() {
 }
 
 
+async function cmdSampleTests() {
+    try { await vscode.commands.executeCommand('workbench.view.extension.cfTrainingSidebar'); } catch (e) { /* ignore */ }
+    if (samplesProvider) await samplesProvider.refresh();
+}
+
 async function cmdSamples() {
     const cpp = activeCppPath();
     if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
@@ -630,19 +655,6 @@ async function cmdSetHandle() {
     if (sidebarProvider) sidebarProvider.refresh();
 }
 
-async function cmdPatch(action) {
-    const labels = { status: '查看 CPH 补丁状态…', apply: '重新打 CPH 补丁…', revert: '回滚 CPH 补丁…' };
-    const result = await runPowerShell('cph-folder-patch.ps1', ['-Action', action], labels[action] || 'CPH 补丁…');
-    if (result.code !== 0) return reportFailure('CPH 补丁操作', result);
-    if (action === 'apply') {
-        vscode.window.showInformationMessage('补丁已写入，重载窗口后生效（Developer: Reload Window）');
-    } else if (action === 'revert') {
-        vscode.window.showInformationMessage('补丁已回滚，重载窗口后生效');
-    } else {
-        const text = String(result.stdout || '').trim();
-        vscode.window.showInformationMessage(text.split(/\r?\n/).join(' | '));
-    }
-}
 
 async function cmdOpenDoc() {
     const file = path.join(workspaceRoot(), 'training', 'README.md');
@@ -844,15 +856,13 @@ async function cmdMenu() {
         { label: '$(search) 复盘指定比赛', description: '输入 contestId', command: 'cfTraining.reviewInput' },
         { label: '$(book) 打开当前题面预览', command: 'cfTraining.statementOpen' },
         { label: '$(refresh) 重新抓取当前题面', command: 'cfTraining.statementNow' },
+        { label: '$(beaker) 样例自测（计分面板）', command: 'cfTraining.sampleTests' },
         { label: '$(run-all) 编译并跑样例', command: 'cfTraining.samples' },
         { label: '$(tools) 只编译', command: 'cfTraining.build' },
         { label: '$(account) 设置 CF 登录 Cookie（Gym/私有比赛）', command: 'cfTraining.cfLogin' },
         { label: '$(search) 检查 CF 登录状态', command: 'cfTraining.cfLoginCheck' },
         { label: '$(trash) 清除 CF 登录 Cookie', command: 'cfTraining.cfLogout' },
         { label: '$(person) 设置 CF handle', command: 'cfTraining.setHandle' },
-        { label: '$(check) 查看 CPH 补丁状态', command: 'cfTraining.patchStatus' },
-        { label: '$(sync) 重新打 CPH 补丁', command: 'cfTraining.patchApply' },
-        { label: '$(discard) 回滚 CPH 补丁', command: 'cfTraining.patchRevert' },
         { label: '$(question) 打开训练手册', command: 'cfTraining.openDoc' }
     ];
     const pick = await vscode.window.showQuickPick(items, { placeHolder: '选择操作' });
@@ -942,6 +952,7 @@ function sidebarHtml() {
         {
             title: '代码',
             items: [
+                { cmd: 'cfTraining.sampleTests', label: '🧪 样例自测（计分）', primary: true },
                 { cmd: 'cfTraining.samples', label: '▶️ 编译并跑样例' },
                 { cmd: 'cfTraining.build', label: '🔨 只编译' }
             ]
@@ -953,9 +964,6 @@ function sidebarHtml() {
                 { cmd: 'cfTraining.cfLoginCheck', label: '🔎 检查 CF 登录状态' },
                 { cmd: 'cfTraining.cfLogout', label: '🚪 清除 CF 登录 Cookie' },
                 { cmd: 'cfTraining.setHandle', label: '👤 设置 CF handle' },
-                { cmd: 'cfTraining.patchStatus', label: '✅ 查看 CPH 补丁状态' },
-                { cmd: 'cfTraining.patchApply', label: '🧩 重新打 CPH 补丁' },
-                { cmd: 'cfTraining.patchRevert', label: '↩️ 回滚 CPH 补丁' },
                 { cmd: 'cfTraining.openDoc', label: '❓ 打开训练手册' }
             ]
         }
@@ -1007,6 +1015,146 @@ function sidebarHtml() {
         '  b.addEventListener(\'click\', function () { vscode.postMessage({ openUrl: b.getAttribute(\'data-url\') }); });\n' +
         '});\n' +
         '</script></body></html>';
+}
+
+function samplesHtml(state) {
+    const nonceSrc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let nonce = '';
+    for (let i = 0; i < 24; i++) nonce += nonceSrc.charAt(Math.floor(Math.random() * nonceSrc.length));
+    const esc = escapeHtml;
+    const results = state.results && Array.isArray(state.results.tests) ? state.results.tests : [];
+    let cases = '';
+    (state.tests || []).forEach(function (t, i) {
+        const r = results[i] || null;
+        const status = r ? r.status : '待测';
+        const cls = r ? (r.status === 'PASS' ? 'ok' : (r.status === 'FAIL' ? 'bad' : 'warn')) : 'idle';
+        cases += '<div class="case"><div class="hd"><b>#' + (t.index || (i + 1)) + '</b>' +
+            '<span class="badge ' + cls + '">' + esc(status) + '</span>' +
+            (r ? '<span class="ms">' + r.ms + ' ms</span>' : '') + '</div>' +
+            '<details><summary>输入 / 输出</summary>' +
+            '<div class="lbl">输入</div><pre>' + esc(t.input || '(空)') + '</pre>' +
+            '<div class="lbl">期望输出</div><pre>' + esc(t.output || '(空)') + '</pre>' +
+            (r && r.status !== 'PASS' ? ('<div class="lbl">实际输出</div><pre>' + esc(r.got || '(空)') + '</pre>') : '') +
+            '</details></div>';
+    });
+    const total = state.results ? Number(state.results.total || state.tests.length) : state.tests.length;
+    const passed = state.results ? Number(state.results.passed || 0) : 0;
+    const pct = total ? Math.round(passed * 100 / total) : 0;
+    const scoreLine = state.results
+        ? ('通过 ' + passed + ' / ' + total + ' · 得分 ' + passed + ' / ' + total + '（' + pct + '%）')
+        : ('共 ' + total + ' 个样例 · 点击「运行全部」开始');
+    const msg = state.message ? '<div class="msg">' + esc(state.message) + '</div>' : '';
+    return '<!DOCTYPE html>\n<html lang="zh-CN"><head><meta charset="utf-8">' +
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'nonce-' + nonce + '\';">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>' +
+        'body{padding:8px 12px 16px;color:var(--vscode-foreground);font-family:var(--vscode-font-family);font-size:13px;}' +
+        'h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.65;margin:8px 0 6px;}' +
+        '.title{font-weight:600;margin:0 0 2px;}.muted{opacity:.7;font-size:12px;}.msg{color:var(--vscode-errorForeground);margin:6px 0;}' +
+        '.score{font-size:13px;margin:6px 0 4px;}.bar{height:14px;background:rgba(128,128,128,.3);border-radius:7px;overflow:hidden;margin-bottom:10px;}' +
+        '.bar i{display:block;height:100%;width:' + pct + '%;background:var(--vscode-testing-iconPassed,#3fb950);}' +
+        'button{width:100%;margin:4px 0;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-family:inherit;background:var(--vscode-button-background);color:var(--vscode-button-foreground);}' +
+        'button.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);}' +
+        '.case{border:1px solid var(--vscode-panel-border,rgba(128,128,128,.35));border-radius:4px;margin:6px 0;padding:6px 8px;}' +
+        '.hd{display:flex;align-items:center;gap:8px;}.hd b{flex:0 0 auto;}.badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;}' +
+        '.badge.ok{background:#2ea043;color:#fff;}.badge.bad{background:#da3633;color:#fff;}.badge.warn{background:#d29922;color:#fff;}.badge.idle{opacity:.6;border:1px solid currentColor;}' +
+        '.ms{margin-left:auto;opacity:.65;font-size:11px;}' +
+        'summary{cursor:pointer;opacity:.8;font-size:12px;}' +
+        '.lbl{font-size:11px;opacity:.65;margin-top:4px;}' +
+        'pre{background:var(--vscode-textCodeBlock-background);padding:5px;border-radius:3px;overflow:auto;max-height:220px;white-space:pre;font-size:12px;}' +
+        '</style></head><body>' +
+        '<h3>样例自测</h3><div class="title">' + esc(state.cpp ? path.basename(state.cpp) : '未打开题目') + '</div>' +
+        '<div class="muted">' + (state.source ? ('数据：' + esc(path.basename(state.source))) : '') + '</div>' +
+        msg +
+        '<div class="score">' + scoreLine + '</div><div class="bar"><i></i></div>' +
+        '<button id="run">▶ 运行全部样例</button><button id="refresh" class="secondary">🔄 重新读取样例</button>' +
+        '<div id="cases">' + cases + '</div>' +
+        '<script nonce="' + nonce + '">const vscode=acquireVsCodeApi();' +
+        'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run"});});' +
+        'document.getElementById("refresh").addEventListener("click",function(){vscode.postMessage({command:"refresh"});});' +
+        '</script></body></html>';
+}
+
+class SamplesViewProvider {
+    constructor(extensionUri) {
+        this.extensionUri = extensionUri;
+        this.view = null;
+        this.cpp = '';
+        this.source = '';
+        this.tests = [];
+        this.results = null;
+        this.message = '';
+    }
+    state() {
+        return { cpp: this.cpp, source: this.source, tests: this.tests, results: this.results, message: this.message };
+    }
+    render() {
+        if (this.view) this.view.webview.html = samplesHtml(this.state());
+    }
+    resolveWebviewView(view) {
+        this.view = view;
+        view.webview.options = { enableScripts: true, localResourceRoots: [this.extensionUri] };
+        this.render();
+        const self = this;
+        view.webview.onDidReceiveMessage(async function (msg) {
+            if (!msg) return;
+            try {
+                if (msg.command === 'run') return await self.run();
+                if (msg.command === 'refresh') return await self.refresh();
+            } catch (e) {
+                vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
+            }
+        });
+        this.refresh();
+    }
+    async refresh() {
+        this.cpp = activeCppPath() || '';
+        this.source = '';
+        this.tests = [];
+        this.results = null;
+        this.message = '';
+        if (!this.cpp) {
+            this.message = '请先打开一道题的 .cpp 文件';
+            this.render();
+            return;
+        }
+        this.render();
+        const res = await runNodeQuiet('sample-tests.js', ['--list', this.cpp]);
+        try {
+            const data = JSON.parse(String(res.stdout || '{}'));
+            this.tests = Array.isArray(data.tests) ? data.tests : [];
+            this.source = data.source || '';
+            if (data.error) this.message = data.error;
+        } catch (e) {
+            this.message = '读取样例失败';
+        }
+        this.render();
+    }
+    async run() {
+        if (!this.cpp) return this.refresh();
+        this.message = '正在编译并运行样例…';
+        this.render();
+        const res = await runNode('sample-tests.js', [this.cpp], '运行样例自测…', { cancellable: true });
+        if (res.cancelled) {
+            this.message = '已取消';
+            this.render();
+            return;
+        }
+        try {
+            const data = JSON.parse(String(res.stdout || '{}'));
+            this.results = data;
+            this.source = data.source || this.source;
+            if (!this.tests.length && Array.isArray(data.tests)) {
+                this.tests = data.tests.map(function (t, i) {
+                    return { index: t.index || (i + 1), input: t.input || '', output: t.output || '' };
+                });
+            }
+            this.message = data.compiled === false ? '编译失败（见下方或输出面板）' : '';
+        } catch (e) {
+            const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || '详见输出面板';
+            this.message = '运行失败：' + first;
+        }
+        this.render();
+    }
 }
 
 class SidebarViewProvider {
@@ -1085,6 +1233,7 @@ function activate(context) {
                             layoutCppAndMd(ed.document.fileName);
                         } catch (e) { /* ignore */ }
                     }, 350);
+                    if (samplesProvider) { try { samplesProvider.refresh(); } catch (e2) { /* ignore */ } }
                 } catch (e) { /* ignore */ }
             }));
         }
@@ -1112,12 +1261,10 @@ function activate(context) {
         'cfTraining.reviewInput': cmdReviewInput,
         'cfTraining.statementOpen': cmdStatementOpen,
         'cfTraining.statementNow': cmdStatementNow,
+        'cfTraining.sampleTests': cmdSampleTests,
         'cfTraining.samples': cmdSamples,
         'cfTraining.build': cmdBuild,
         'cfTraining.setHandle': cmdSetHandle,
-        'cfTraining.patchStatus': function () { return cmdPatch('status'); },
-        'cfTraining.patchApply': function () { return cmdPatch('apply'); },
-        'cfTraining.patchRevert': function () { return cmdPatch('revert'); },
         'cfTraining.openDoc': cmdOpenDoc
     };
     Object.keys(map).forEach(function (id) {
@@ -1125,10 +1272,16 @@ function activate(context) {
     });
 
     sidebarProvider = new SidebarViewProvider(context.extensionUri || vscode.Uri.file(__dirname));
+    samplesProvider = new SamplesViewProvider(context.extensionUri || vscode.Uri.file(__dirname));
     if (vscode.window.registerWebviewViewProvider) {
         context.subscriptions.push(vscode.window.registerWebviewViewProvider(
             'cfTraining.main',
             sidebarProvider,
+            { webviewOptions: { retainContextWhenHidden: true } }
+        ));
+        context.subscriptions.push(vscode.window.registerWebviewViewProvider(
+            'cfTraining.samples',
+            samplesProvider,
             { webviewOptions: { retainContextWhenHidden: true } }
         ));
     }

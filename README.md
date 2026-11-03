@@ -5,6 +5,8 @@
 
 > 这是从个人工作区整理出来的**工具包**：只包含脚本、VS Code 插件源码、模板和文档，不包含题目代码、比赛数据和个人配置。
 >
+> **CPH 已卸载**：本项目不再依赖 Competitive Programming Helper，补丁机制已移除；拉题、题面、样例自测全部由本工具完成。
+>
 > **交流群**：QQ **188241279**（问题反馈 / 使用交流 / 更新通知）
 
 ## 拉题方式（推荐：直接给比赛链接）
@@ -54,12 +56,11 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 > Cookie 等同于登录态，**不要分享/提交**。它只保存在本机 `training/cf-cookies.txt`（已在 `.gitignore` 中）。
 ## 功能
 
-- **CPH 拉题增强**（Competitive Programming Helper 扩展补丁）
-  - 按比赛自动建目录：`codeforces/<比赛>/<题号>.cpp`（`.cph` 样例缓存、`.bin` 跟着走）
-  - 拉题自动抓题面 → 中英对照 `<题号>.md`，并自动打开预览（只对当前正在编辑的题生效，整场拉题不会弹一堆）
+- **样例自测（计分面板）**：活动栏「样例自测」块读取 `.cph`/`<题号>.json` 样例；运行后显示通过数/得分、逐题耗时、PASS/FAIL 与期望/实际输出对比
+- **自动建目录与题面**：整场抓取自动建 `codeforces/<比赛>/`，生成中英对照 `<题号>.md` 并自动分屏预览
 - **多平台题面抓取**
   - 单题：`tools\cph-statement.js` 支持 Codeforces / AtCoder / 洛谷 / 牛客
-  - 整场：`tools\pull-contest.js` 抓一场比赛全部题面 + 建 cpp + 生成 CPH 样例缓存
+  - 整场：`tools\pull-contest.js` 抓一场比赛全部题面 + 建 cpp + 样例缓存
 - **AI 助手**（任意 OpenAI 兼容 API：DeepSeek / SiliconFlow / 自建网关）
   - 题面翻译：拉题时优先 AI 翻译，失败自动退回 Bing
   - AI 提示：先读当前编辑器代码（含未保存修改）做「代码体检」，再按级别给提示（方向 → 思路 → 伪代码，不直接给完整代码）
@@ -72,7 +73,7 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 - **本地做题工具**
   - `tools\cp.ps1`：编译（gnu++23 + O2 + 大栈）、跑样例、手写输入、对拍
   - `tools\mkdata.ps1`：造题数据生成与校验
-- **VS Code 面板**：活动栏「CF 训练」+ 状态栏菜单，所有操作一键触发；支持 AI 配置、CPH 补丁状态、题单展示
+- **VS Code 面板**：活动栏「CF 训练」+ 状态栏菜单，所有操作一键触发；支持 AI 配置、样例自测、题单展示
 
 ## 环境要求
 
@@ -100,15 +101,7 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 
    然后在 VS Code 里 `Ctrl+Shift+P` → `Developer: Reload Window`。
 
-3. **给 CPH 扩展打补丁**（自动建比赛目录 + 拉题抓题面）：
-
-   ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File tools\cph-folder-patch.ps1 -Action apply
-   ```
-
-   状态 / 回滚：`-Action status` / `-Action revert`。CPH 扩展升级后补丁会失效，重新 `-Action apply` 即可。
-
-4. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `CF 训练`，或编辑 `training/ai-config.json`：
+3. **样例自测**：打开题目 `.cpp` 后，活动栏「CF 训练」→「样例自测」块会读取样例；点「▶ 运行全部样例」显示通过数、得分和逐题 PASS/FAIL（Gym 需先设置 Cookie）。4. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `CF 训练`，或编辑 `training/ai-config.json`：
 
    ```json
    { "baseUrl": "https://api.deepseek.com", "apiKey": "sk-...", "model": "deepseek-flash" }
@@ -126,8 +119,8 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\update.ps1
 ```
 
-它会依次做：`git pull --ff-only` → 重装本地插件 → 重新打 CPH 补丁，最后按提示 `Developer: Reload Window` 即可。
-只更新一部分：`-SkipPull`（不 git pull）/ `-NoExtension`（不重装插件）/ `-NoPatch`（不碰 CPH 补丁）。
+它会依次做：`git pull --ff-only` → 重装本地插件，最后按提示 `Developer: Reload Window` 即可。
+只更新一部分：`-SkipPull`（不 git pull）/ `-NoExtension`（不重装插件）。
 本地有改动导致 pull 失败时，先 `git stash` 或提交，再更新。
 
 维护者发布更新：改代码（插件功能变化时改 `package.json` 的 `version`）→ 记录到 `CHANGELOG.md` → `git commit && git push`。建议同时执行 `tools\package-extension.ps1` 生成 `.vsix` 并上传到 GitCode Release，方便没 clone 仓库的人安装。
@@ -206,7 +199,7 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 - **训练**：抓取整场比赛（洛谷/牛客/AtCoder）、生成/刷新周题单、复盘最近一场、复盘指定比赛
 - **题面**：打开当前题面预览、重新抓取当前题面
 - **代码**：编译并跑样例、只编译
-- **设置/维护**：设置 CF handle、CPH 补丁状态/重打/回滚、打开训练手册
+- **设置/维护**：设置 CF handle、CF 登录 Cookie、打开训练手册
 
 状态栏也有「CF 训练」和 AI 配置状态入口。
 
@@ -231,7 +224,6 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 ├─ tools/
 │  ├─ cp.ps1                 # 编译 / 跑样例 / 手写输入 / 对拍
 │  ├─ mkdata.ps1             # 造题数据生成与校验
-│  ├─ cph-folder-patch.ps1   # CPH 补丁：按比赛建目录 + 拉题抓题面
 │  ├─ cph-statement.js       # 单题题面 → md（CF/AtCoder/洛谷/牛客，AI/Bing 翻译）
 │  ├─ cph-statements.ps1     # 单题题面重抓（插件内部用）
 │  ├─ pull-contest.js        # 整场抓取（AtCoder/洛谷/牛客）
@@ -254,13 +246,11 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 
 - 仅支持 Windows（脚本用 PowerShell 5.1 + `curl.exe`；含中文的 `.ps1` 必须 UTF-8 with BOM）
 - CPH Gym/私有题页面需要登录，抓不到题面；洛谷比赛未开始/未公开时拿不到题目列表；牛客比赛进行中或私有比赛需要登录
-- CPH 扩展升级后补丁会失效，需要重新运行 `cph-folder-patch.ps1 -Action apply`
-- CPH 自带的编译是 gnu++17 / 无 `-O2` / 1MB 栈 → 计时、验复杂度、大递归请用 `cp.ps1`
+- 样例自测由本工具用 g++ 编译（gnu++23 + O2 + 大栈）
 
 ## 开发
 
 - 修改插件源码后：`tools\install-vscode-extension.ps1` → Reload Window
-- 修改补丁脚本后：`cph-folder-patch.ps1 -Action revert` → `-Action apply`（补丁 selftest：`-Action selftest`）
 - 修改 `cph-statement.js` 后可用 `--html=page.html` 离线调试解析
 
 ## License

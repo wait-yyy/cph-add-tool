@@ -46,10 +46,7 @@ if (-not $NoExtension) {
 }
 
 if (-not $NoPatch) {
-    Write-Host '--- 检查/重新打 CPH 补丁 ---'
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'cph-folder-patch.ps1') -Action apply
-} else {
-    Write-Host 'SKIP CPH 补丁'
+    Write-Host 'CPH 已卸载，跳过补丁步骤（题目/样例由 CF 训练工具自带功能处理）。'
 }
 
 Write-Host ''

@@ -34,7 +34,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 | 题面 | 重新抓取当前题面 | 跑 `cph-statements.ps1 -Solution <当前 cpp> -Force` |
 | 代码 | 编译并跑样例 / 只编译 | 跑 `cp.ps1 samples/build` |
 | 设置 | 设置 CF handle | 写 `training/cf-handle.txt` |
-| 维护 | 查看 / 重新打 / 回滚 CPH 补丁 | 跑 `cph-folder-patch.ps1` |
 | 帮助 | 打开训练手册 | 打开 `training/README.md` 预览 |
 
 ## 题单来源
@@ -57,7 +56,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 单个题目用面板「📥 抓取单个题目」或命令行 `--single`，会生成 md/cpp/.cph 并直接打开两栏。
 
-会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（按**初始模板**生成）、`<题号>.json` 结构化题面数据、`.cph` 样例缓存（CPH 按钮和 `cp.ps1 samples` 都能直接跑样例）；整场还会生成 `contest.json`。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
+会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（按**初始模板**生成）、`<题号>.json` 结构化题面数据、`.cph` 样例缓存（样例自测面板 / `cp.ps1 samples` 都能直接跑样例）；整场还会生成 `contest.json`。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
 
 初始模板默认是仓库根目录的 `new.cpp`，可以这样改：
 - 面板「🧩 设置拉题初始模板」→ 选一个 `.cpp` 文件
@@ -69,6 +68,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 ## Codeforces Gym / 私有比赛（登录）
 
 Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / 维护」→「🍪 设置 CF 登录 Cookie」，粘贴浏览器里 `codeforces.com` 请求的 **Cookie** 整行即可（会自动验证并显示 handle）。Cookie 只存本机 `training/cf-cookies.txt`，已 gitignore；过期后重新设置，或用「🚪 清除 CF 登录 Cookie」退出。
+## 样例自测（计分）
+
+活动栏「CF 训练」→「样例自测」块：读取当前题目的 `.cph` 缓存或 `<题号>.json`，点「▶ 运行全部样例」会编译并逐题运行，显示**通过数 / 得分 / 百分比**，每题可展开看输入、期望输出、实际输出和耗时。
+
 ## AI 助手（OpenAI 兼容 API）
 
 **三个地方都能设置，任选一个：**
@@ -100,6 +103,5 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 ## 说明
 
 - 需要打开本工作区根目录（扩展按 `workspaceFolders[0]` 找 `tools/`）
-- 拉题自动建目录 / 自动生成中英题面 / 自动开预览仍是 CPH 补丁负责，本插件是手动操作的入口
 - 所有输出在 **输出** 面板的「CF 训练工具」频道
 - 改完源码后跑一次 `install-vscode-extension.ps1` 再 Reload

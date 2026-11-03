@@ -2,7 +2,7 @@
     "name": "cf-training-tools",
     "displayName": "CF Training Tools",
     "description": "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version": "0.6.3",
+    "version": "0.6.4",
     "publisher": "waityyy",
     "repository": {
         "type": "git",
@@ -201,6 +201,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "拉题时自动打开题面预览（只对当前正在编辑的那道题生效；整场拉题不会弹一堆。设为 false 可彻底关闭）"
+                },
+                "cf-training-tools.forceTwoColumnSplit": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "打开题目时强制两栏布局：左侧 .cpp、右侧题面 .md 预览（设为 false 则不调整布局）"
                 },
                 "cf-training-tools.autoStatementPreview": {
                     "type": "boolean",

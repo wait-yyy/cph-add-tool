@@ -14,6 +14,7 @@ let statusBar = null;
 let aiStatusBar = null;
 let sidebarProvider = null;
 let lastPreviewed = null;
+let layoutingCpp = null;
 
 function workspaceRoot() {
     const folders = vscode.workspace.workspaceFolders;
@@ -319,15 +320,29 @@ async function previewStatement(mdPath) {
     }
 }
 
-async function openProblemWithStatement(cppPath) {
-    const mdPath = siblingMarkdown(cppPath);
-    if (fs.existsSync(cppPath)) {
-        try {
-            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(cppPath));
-            await vscode.window.showTextDocument(doc, vscode.ViewColumn.One, false);
-        } catch (e) { /* ignore */ }
+async function layoutCppAndMd(cppPath) {
+    if (layoutingCpp) return;
+    layoutingCpp = cppPath;
+    try {
+        const conf = vscode.workspace.getConfiguration('cf-training-tools');
+        if (conf.get('forceTwoColumnSplit') !== false) {
+            try { await vscode.commands.executeCommand('workbench.action.editorLayoutTwoColumns'); } catch (e) { /* ignore */ }
+        }
+        if (fs.existsSync(cppPath)) {
+            try {
+                const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(cppPath));
+                await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preserveFocus: false });
+            } catch (e) { /* ignore */ }
+        }
+        await previewStatement(siblingMarkdown(cppPath));
+        try { await vscode.commands.executeCommand('workbench.action.focusFirstEditorGroup'); } catch (e) { /* ignore */ }
+    } finally {
+        setTimeout(function () { layoutingCpp = null; }, 700);
     }
-    await previewStatement(mdPath);
+}
+
+async function openProblemWithStatement(cppPath) {
+    return layoutCppAndMd(cppPath);
 }
 
 async function pickPulledProblem(folder) {
@@ -471,7 +486,7 @@ async function cmdStatementOpen() {
         if (pick === '现在抓取') return cmdStatementNow();
         return;
     }
-    await openPreview(md);
+    await layoutCppAndMd(cpp);
 }
 
 async function cmdStatementNow() {
@@ -968,7 +983,7 @@ function activate(context) {
                         try {
                             const cur = vscode.window.activeTextEditor;
                             if (!cur || !cur.document || cur.document.fileName !== ed.document.fileName) return;
-                            previewStatement(mdPath);
+                            layoutCppAndMd(ed.document.fileName);
                         } catch (e) { /* ignore */ }
                     }, 350);
                 } catch (e) { /* ignore */ }

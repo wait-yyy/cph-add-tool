@@ -21,7 +21,7 @@ node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
 
 也可以直接在 VS Code 面板点「📥 抓取整场比赛」，粘贴链接即可。
 
-抓取过程中进度通知上有 **取消按钮**，可随时中断（已生成的文件保留）；抓取完成后可点「选择题目打开」→ 打开 cpp 并分屏题面 md；打开任何有同名 .md 的 .cpp 也会自动分屏题面预览。
+抓取过程中进度通知上有 **取消按钮**，可随时中断（已生成的文件保留）；抓取完成后可点「选择题目打开」→ 打开 cpp 并分屏题面 md；打开任何有同名 .md 的 .cpp 也会自动分屏题面预览。打开题目时会强制两栏布局：左侧 cpp、右侧题面 md（设置 `cf-training-tools.forceTwoColumnSplit=false` 可关闭）。
 
 每道题产物：
 - `<题号>.md`：中英对照题面（英文自动翻译）

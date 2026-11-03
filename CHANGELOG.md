@@ -1,5 +1,10 @@
 # 更新日志
 
+## 0.6.4
+
+- 打开题目时**强制两栏布局**：左侧 `.cpp`、右侧题面 `.md` 预览（`editorLayoutTwoColumns` + `markdown.showPreviewToSide`，焦点回到 cpp）
+- 「打开当前题面预览」和抓取后「选择题目打开」也走同一布局
+- 新增设置 `cf-training-tools.forceTwoColumnSplit`（默认 true，设为 false 则不调整布局）
 ## 0.6.3
 
 - 抓取整场比赛时，进度通知增加**取消按钮**：取消会终止 node 进程树（已生成的 md/cpp 保留）

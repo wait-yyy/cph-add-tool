@@ -43,15 +43,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 - **洛谷**：题库列表页（difficulty 3/4），脚本自动拿 C3VK cookie
 - 默认数量分配：CF 占一半，其余 AtCoder/洛谷均分；某平台失败会自动用 CF 补位
 
-## 抓取整场比赛（AtCoder / 洛谷 / 牛客）
+## 抓取整场比赛（Codeforces / AtCoder / 洛谷 / 牛客）
 
-面板「训练」分组 → **📥 抓取整场比赛（洛谷/牛客/AtCoder）**，粘贴比赛链接即可：
+面板「训练」分组 → **📥 抓取整场比赛（CF/洛谷/牛客/AtCoder）**，粘贴比赛链接即可：
 
+- `https://codeforces.com/contest/2278`（正赛；Gym/私有比赛需要登录，不支持）
 - `https://atcoder.jp/contests/abc402`
 - `https://www.luogu.com.cn/contest/251050`
 - `https://ac.nowcoder.com/acm/contest/85333`
 
 会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（从 `new.cpp` 复制）、`.cph` 样例缓存（CPH 按钮和 `cp.ps1 samples` 都能直接跑样例）。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
+
+> Codeforces 题面页有 Cloudflare 防护，`cph-statement.js` 会在 403 时自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面；Gym/私有比赛仍需要登录。
 
 ## AI 助手（OpenAI 兼容 API）
 

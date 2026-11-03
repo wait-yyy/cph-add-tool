@@ -18,6 +18,7 @@
  *   node tools/pull-contest.js https://ac.nowcoder.com/acm/contest/85333
  *
  * Supported URL shapes:
+ *   Codeforces /contest/<id>               or /gym/<id>（单题可加 /problem/<index>）
  *   AtCoder  /contests/<contest>            (tasks page) or .../tasks/<taskId>
  *   洛谷      /contest/<id>                  or /problem/<pid>
  *   牛客      /acm/contest/<id>              or /acm/problem/<id>
@@ -37,6 +38,7 @@ const IS_WIN = process.platform === 'win32';
 
 function usage() {
     console.log('usage: node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force] [--no-cpp] [--no-translate] [--no-ai]');
+    console.log('  Codeforces: https://codeforces.com/contest/2278');
     console.log('  AtCoder : https://atcoder.jp/contests/abc402');
     console.log('  洛谷    : https://www.luogu.com.cn/contest/251050');
     console.log('  牛客    : https://ac.nowcoder.com/acm/contest/85333');
@@ -65,7 +67,8 @@ function curlGet(url, opts) {
         '-H', 'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8'];
     if (opts.jar) args.push('-c', opts.jar, '-b', opts.jar);
     if (opts.referer) args.push('-H', 'Referer: ' + opts.referer);
-    args.push('-f', url);
+    if (!opts.allowError) args.push('-f');
+    args.push(url);
     const out = execFileSync(IS_WIN ? 'curl.exe' : 'curl', args, {
         maxBuffer: 40 * 1024 * 1024,
         timeout: (opts.timeout || 30) * 1000 + 5000,
@@ -102,6 +105,15 @@ function detect(url) {
     const host = u.hostname.toLowerCase();
     const p = u.pathname;
     let m;
+    if (/(^|\.)codeforces\.com$/.test(host)) {
+        m = /\/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/.exec(p);
+        if (m) return { platform: 'codeforces', contestId: m[1], singleIndex: m[2], isGym: false };
+        m = /\/contest\/(\d+)/.exec(p) || /\/gym\/(\d+)/.exec(p);
+        if (!m) return null;
+        const isGym = /\/gym\//.test(p);
+        const tm = /\/problem\/([A-Za-z0-9]+)/.exec(p);
+        return { platform: 'codeforces', contestId: m[1], isGym: isGym, singleIndex: tm ? tm[1] : '' };
+    }
     if (/(^|\.)atcoder\.jp$/.test(host)) {
         m = /\/contests\/([^/?#]+)/.exec(p);
         if (!m) return null;
@@ -129,9 +141,14 @@ function filterOnly(problems, only) {
     if (!only || !only.length) return problems;
     return problems.filter(function (p) {
         return only.some(function (o) {
-            return p.base === o || p.base === o.toUpperCase() ||
-                p.base.toLowerCase() === o.toLowerCase() ||
-                p.base.toLowerCase().endsWith('_' + o.toLowerCase());
+            const up = String(o).toUpperCase();
+            const low = String(o).toLowerCase();
+            if (String(p.base).toUpperCase() === up) return true;
+            if (String(p.base).toLowerCase() === low) return true;
+            if (String(p.base).toLowerCase().endsWith('_' + low)) return true;
+            // Codeforces: base = <contestId><index>, allow --only=A / --only=A1
+            const cm = /^\d+([A-Z]\d*)$/.exec(String(p.base).toUpperCase());
+            return !!cm && cm[1] === up;
         });
     });
 }
@@ -233,6 +250,73 @@ function enumerateNowcoder(info, flags) {
     return { group: group || ('牛客比赛 ' + info.contestId), folder: 'nowcoder/contest' + info.contestId, problems: out };
 }
 
+/* ---------- Codeforces ---------- */
+
+// Mirror the CPH patch's folder naming so pulled files land in the same folder
+// that the patched CPH extension would use for the same contest.
+function codeforcesFolder(contestName, contestId, isGym) {
+    if (isGym) return 'codeforces/gym' + contestId;
+    const g = String(contestName || '');
+    let m = /Codeforces Round (\d+)/.exec(g) || /Round (\d+)/.exec(g);
+    if (m) {
+        let c = m[1];
+        const ds = [];
+        const re = /Div\. ?(\d+)/g;
+        let x;
+        while ((x = re.exec(g)) !== null) {
+            if (ds.indexOf(x[1]) < 0) ds.push(x[1]);
+        }
+        if (/Educational/i.test(g)) c = 'edu' + c;
+        else if (/Global Round/i.test(g)) c = 'global' + c;
+        if (ds.length) c += ' div' + ds.join('+');
+        return 'codeforces/' + c;
+    }
+    return 'codeforces/contest' + contestId;
+}
+
+function enumerateCodeforces(info, flags) {
+    const id = String(info.contestId);
+    // Anonymous requests must not add from/count (CF rejects them with 400),
+    // so this returns the full standings payload (a few MB, cached by curl).
+    const api = 'https://codeforces.com/api/contest.standings?contestId=' + id;
+    let data = null;
+    try {
+        data = JSON.parse(curlGet(api, { timeout: 60, allowError: true }));
+    } catch (e) {
+        throw new Error('Codeforces API 请求失败：' + e.message);
+    }
+    if (!data || data.status !== 'OK' || !data.result) {
+        const msg = (data && data.comment) || 'unknown';
+        if (info.isGym) {
+            throw new Error('CF Gym/私有比赛 API 不可用（需要登录）：' + msg + '。请改用 CPH 拉题，或确认 gym 编号/权限。');
+        }
+        throw new Error('Codeforces API 返回错误：' + msg);
+    }
+    const contest = data.result.contest || {};
+    const name = String(contest.name || ('Contest ' + id));
+    const folder = codeforcesFolder(name, id, info.isGym);
+    const baseDir = info.isGym
+        ? ('https://codeforces.com/gym/' + id)
+        : ('https://codeforces.com/contest/' + id);
+    let problems = (data.result.problems || []).map(function (p) {
+        const idx = String(p.index);
+        return { base: id + idx, url: baseDir + '/problem/' + idx, name: p.name || idx, index: idx };
+    });
+    if (info.singleIndex) {
+        const want = String(info.singleIndex).toUpperCase();
+        problems = problems.filter(function (p) { return p.index.toUpperCase() === want; });
+        if (!problems.length) {
+            problems = [{
+                base: id + info.singleIndex,
+                url: baseDir + '/problem/' + info.singleIndex,
+                name: String(info.singleIndex),
+                index: String(info.singleIndex)
+            }];
+        }
+    }
+    return { group: 'Codeforces - ' + name, folder: folder, problems: problems };
+}
+
 function writeCphCache(outDir, cppPath, samplesFile, fallbackGroup, fallbackUrl) {
     let data = null;
     try { data = JSON.parse(fs.readFileSync(samplesFile, 'utf8')); } catch (e) { return false; }
@@ -274,13 +358,14 @@ function main() {
     if (!url) { usage(); return 2; }
     const info = detect(url);
     if (!info) {
-        console.error('无法识别比赛链接（支持 AtCoder / 洛谷 / 牛客）: ' + url);
+        console.error('无法识别比赛链接（支持 Codeforces / AtCoder / 洛谷 / 牛客）: ' + url);
         return 2;
     }
 
     let meta;
     try {
-        if (info.platform === 'atcoder') meta = enumerateAtCoder(info, parsed.flags);
+        if (info.platform === 'codeforces') meta = enumerateCodeforces(info, parsed.flags);
+        else if (info.platform === 'atcoder') meta = enumerateAtCoder(info, parsed.flags);
         else if (info.platform === 'luogu') meta = enumerateLuogu(info, parsed.flags);
         else meta = enumerateNowcoder(info, parsed.flags);
     } catch (e) {
@@ -310,6 +395,10 @@ function main() {
         const mdPath = path.join(outDir, p.base + '.md');
         if (fs.existsSync(mdPath) && !parsed.flags.force) {
             console.log('SKIP     ' + p.base + ' (md exists, use --force to refresh)');
+            if (!parsed.flags.noCpp && !fs.existsSync(cppPath) && fs.existsSync(tpl)) {
+                fs.copyFileSync(tpl, cppPath);
+                console.log('  (created missing ' + p.base + '.cpp)');
+            }
             skipped++;
             return;
         }
@@ -334,9 +423,9 @@ function main() {
         });
         const outText = (r.stdout || '').trim();
         if (outText) outText.split(/\r?\n/).forEach(function (l) { if (l.trim()) console.log('  ' + l.trim()); });
-        const errText = (r.stderr || '').trim();
-        if (errText) errText.split(/\r?\n/).forEach(function (l) { if (l.trim()) console.error('  ' + l.trim()); });
         if (r.status !== 0) {
+            const errText = (r.stderr || '').trim();
+            if (errText) errText.split(/\r?\n/).forEach(function (l) { if (l.trim()) console.error('  ' + l.trim()); });
             failed++;
             console.error('FAIL     ' + p.base);
             try { fs.unlinkSync(samplesTmp); } catch (e) { /* ignore */ }

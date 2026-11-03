@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.6.1
+
+- **整场抓取支持 Codeforces 正赛**：`tools/pull-contest.js` 用 CF API 枚举题目，按 `new.cpp` 建 cpp、生成 `.cph` 样例缓存
+- `cph-statement.js`：CF 题面页被 Cloudflare 403 时自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面（CPH 拉题生成 md 也更稳）
+- CF Gym/私有比赛仍不支持（API/题面需要登录）
+- 插件面板/命令文案更新为「抓取整场比赛（Codeforces/洛谷/牛客/AtCoder）」
+
 ## 0.6.0
 
 - 新增 **整场比赛抓取**：`tools/pull-contest.js` + 插件按钮「📥 抓取整场比赛（洛谷/牛客/AtCoder）」

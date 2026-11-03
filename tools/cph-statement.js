@@ -152,6 +152,16 @@ async function fetchLuoguPage(url) {
     throw lastErr;
 }
 
+// Codeforces HTML pages are behind Cloudflare and sometimes answer 403 to
+// non-browser clients. Luogu mirrors most public CF problems as CF<contestId><index>,
+// so use it as a statement fallback.
+function luoguMirrorUrl(url) {
+    const m = /\/contest\/(\d+)\/problem\/([A-Za-z0-9]+)/.exec(url) ||
+        /\/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/.exec(url);
+    if (!m) return '';
+    return 'https://www.luogu.com.cn/problem/CF' + m[1] + m[2];
+}
+
 // Codeforces sits behind Cloudflare and returns 403 to Node's TLS fingerprint.
 // curl.exe on Windows gets through, so prefer it there and fall back to node https.
 async function fetchProblem(url) {
@@ -390,6 +400,20 @@ function normalizeLimit(s) {
         .trim();
 }
 
+function limitMsFromText(text) {
+    const m = /([\d.]+)\s*(ms|milliseconds?|s|sec|seconds?)\b/i.exec(String(text || ''));
+    if (!m) return 0;
+    const v = parseFloat(m[1]);
+    return /^(ms|milli)/i.test(m[2]) ? Math.round(v) : Math.round(v * 1000);
+}
+
+function limitMbFromText(text) {
+    const m = /([\d.]+)\s*(MB|MiB|megabytes?|GB|GiB|gigabytes?)\b/i.exec(String(text || ''));
+    if (!m) return 0;
+    const v = parseFloat(m[1]);
+    return /^(GB|GiB|giga)/i.test(m[2]) ? Math.round(v * 1024) : Math.round(v);
+}
+
 function buildCodeforces(html, meta) {
     const blocks = findBlocks(html, 'div', function (a) { return hasClass(a, 'problem-statement'); });
     if (!blocks.length) return null;
@@ -444,8 +468,8 @@ function buildCodeforces(html, meta) {
         limits: [tl, ml].filter(Boolean).join(' / '),
         body: body,
         samples: samples,
-        tlMs: Number(meta.tl) || 0,
-        mlMb: Number(meta.ml) || 0,
+        tlMs: Number(meta.tl) || limitMsFromText(tl),
+        mlMb: Number(meta.ml) || limitMbFromText(ml),
         group: meta.group || ''
     };
 }
@@ -1098,6 +1122,7 @@ async function main() {
     }
 
     let html;
+    let parsedAsLuogu = false;
     if (htmlArg) {
         try {
             html = fs.readFileSync(path.resolve(WORKSPACE_ROOT, htmlArg), 'utf8');
@@ -1110,12 +1135,27 @@ async function main() {
             if (isLuogu) html = await fetchLuoguPage(finalUrl);
             else html = await fetchProblem(finalUrl);
         } catch (e) {
-            console.error('fetch failed: ' + e.message + ' ' + finalUrl);
-            appendLog('fetch failed ' + finalUrl + ' :: ' + e.message);
-            return 1;
+            let mirror = '';
+            if (isCf) mirror = luoguMirrorUrl(url);
+            if (mirror) {
+                try {
+                    html = await fetchLuoguPage(mirror);
+                    parsedAsLuogu = true;
+                    console.log('note: Codeforces blocked, used Luogu mirror: ' + mirror);
+                    appendLog('cf 403 fallback to ' + mirror + ' for ' + finalUrl);
+                } catch (e2) {
+                    console.error('fetch failed: ' + e.message + ' ' + finalUrl + ' / mirror also failed: ' + e2.message);
+                    appendLog('fetch failed ' + finalUrl + ' :: ' + e.message + ' / mirror ' + mirror + ' :: ' + e2.message);
+                    return 1;
+                }
+            } else {
+                console.error('fetch failed: ' + e.message + ' ' + finalUrl);
+                appendLog('fetch failed ' + finalUrl + ' :: ' + e.message);
+                return 1;
+            }
         }
         const headTitle = (/<title>([\s\S]*?)<\/title>/i.exec(html.slice(0, 6000)) || [])[1] || '';
-        if (isCf && /Just a moment|Enter - Codeforces|Codeforces - Enter/i.test(headTitle)) {
+        if (!parsedAsLuogu && isCf && /Just a moment|Enter - Codeforces|Codeforces - Enter/i.test(headTitle)) {
             const msg = 'codeforces anti-bot/login wall (gym/private problem?): ' + url;
             console.error(msg);
             appendLog(msg);
@@ -1125,7 +1165,8 @@ async function main() {
 
     let result = null;
     try {
-        if (isCf) result = buildCodeforces(html, meta);
+        if (parsedAsLuogu) result = buildLuogu(html, meta);
+        else if (isCf) result = buildCodeforces(html, meta);
         else if (isAtCoder) result = buildAtCoder(html, meta);
         else if (isLuogu) result = buildLuogu(html, meta);
         else result = buildNowcoder(html, meta);

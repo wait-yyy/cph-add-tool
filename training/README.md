@@ -90,9 +90,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 - 命令行：`node tools/ai-client.js ping|translate|review|hint|ask ...`
 - 支持的 API：DeepSeek、SiliconFlow、任意 OpenAI 兼容网关（OpenAI 官方从本机不可达）
 
-## 抓取整场比赛（AtCoder / 洛谷 / 牛客）
+## 抓取整场比赛（Codeforces / AtCoder / 洛谷 / 牛客）
 
 ```powershell
+node tools\pull-contest.js https://codeforces.com/contest/2278
 node tools\pull-contest.js https://atcoder.jp/contests/abc402
 node tools\pull-contest.js https://www.luogu.com.cn/contest/251050
 node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
@@ -101,6 +102,7 @@ node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
 - 每道题生成 `题面.md` + 从 `new.cpp` 复制的 `.cpp` + CPH `.cph` 样例缓存（`cp.ps1 samples`、CPH 按钮都能跑样例）
 - 默认跳过已有 md；`--force` 覆盖，`--only=A,B` 只抓部分，`--out=<dir>` 指定输出目录，`--no-cpp` 只抓题面
 - 插件面板「📥 抓取整场比赛」同款；洛谷比赛题会自动带 `?contestId=`，牛客自动探测 A..Z 题号
+- **Codeforces**：正赛用 CF API 枚举；题面页被 Cloudflare 403 时自动改用洛谷镜像 `CF<id><index>` 抓取。**Gym/私有比赛需要登录，不支持整场抓取**。
 
 ## 本目录约定
 

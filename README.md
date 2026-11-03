@@ -136,6 +136,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress  -Soluti
 
 # 题面：单题 / 整场
 node tools\cph-statement.js "https://codeforces.com/contest/2278/problem/A" "codeforces\1131 div3\2278A.md" --force
+node tools\pull-contest.js https://codeforces.com/contest/2278
 node tools\pull-contest.js https://atcoder.jp/contests/abc402
 node tools\pull-contest.js https://www.luogu.com.cn/contest/251050
 node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
@@ -166,11 +167,13 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 
 | 平台 | 拉题到本地 | 题面 md | 整场抓取 | 样例缓存 |
 | --- | --- | --- | --- | --- |
-| Codeforces（正赛） | CPH 拉题 | ✅ | —（CPH 逐题拉即可） | ✅ |
-| Codeforces Gym / 私有题 | CPH 可拉，但题面需登录 | ❌ | — | ✅ |
+| Codeforces（正赛） | CPH 拉题 / `pull-contest.js` | ✅ | ✅ | ✅ |
+| Codeforces Gym / 私有题 | CPH 可拉，但题面需登录 | ❌ | ❌（API 需登录） | ✅ |
 | AtCoder | CPH 拉题 | ✅ | ✅ `pull-contest.js` | ✅ |
 | 洛谷 | ❌（CPH 不支持） | ✅ | ✅ `pull-contest.js` | ✅ |
 | 牛客 | ❌（CPH 不支持） | ✅ | ✅ `pull-contest.js` | ✅ |
+
+> Codeforces 题面页有 Cloudflare 防护，普通脚本请求可能被 403；`cph-statement.js` 会自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面，所以 CF 正赛整场抓取和 CPH 拉题生成的 md 都能正常完成；Gym/私有比赛仍需登录，抓不到。
 
 ## 目录结构
 

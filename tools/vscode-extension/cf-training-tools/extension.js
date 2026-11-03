@@ -284,8 +284,8 @@ function reportFailure(action, result) {
 
 async function cmdPullContest() {
     const url = await vscode.window.showInputBox({
-        prompt: '比赛链接（AtCoder / 洛谷 / 牛客），会抓题面 + 建 cpp + 样例缓存',
-        placeHolder: 'https://atcoder.jp/contests/abc402 或 https://www.luogu.com.cn/contest/251050 或 https://ac.nowcoder.com/acm/contest/85333',
+        prompt: '比赛链接（Codeforces / AtCoder / 洛谷 / 牛客），会抓题面 + 建 cpp + 样例缓存',
+        placeHolder: 'https://codeforces.com/contest/2278 或 https://atcoder.jp/contests/abc402 或 https://www.luogu.com.cn/contest/251050 或 https://ac.nowcoder.com/acm/contest/85333',
         validateInput: function (s) { return /^https?:\/\//i.test(String(s || '').trim()) ? null : '请输入 http(s) 链接'; }
     });
     if (!url) return;
@@ -627,7 +627,7 @@ async function cmdMenu() {
         { label: '$(tools) 在 VS Code 设置中编辑 AI', command: 'cfTraining.aiSettings' },
         { label: '$(plug) 测试 AI 连接', command: 'cfTraining.aiTest' },
         { label: '$(calendar) 生成/刷新周题单（CF+AtCoder+洛谷）', description: 'training/plan.md', command: 'cfTraining.plan' },
-        { label: '$(cloud-download) 抓取整场比赛（洛谷/牛客/AtCoder）', description: '题面 + cpp + 样例缓存', command: 'cfTraining.pullContest' },
+        { label: '$(cloud-download) 抓取整场比赛（Codeforces/洛谷/牛客/AtCoder）', description: '题面 + cpp + 样例缓存', command: 'cfTraining.pullContest' },
         { label: '$(book) 打开完整周题单', command: 'cfTraining.openPlan' },
         { label: '$(checklist) 打开重做队列', command: 'cfTraining.openRedo' },
         { label: '$(history) 复盘最近一场', description: '生成 review.md 并打开', command: 'cfTraining.reviewLatest' },
@@ -712,7 +712,7 @@ function sidebarHtml() {
         {
             title: '训练',
             items: [
-                { cmd: 'cfTraining.pullContest', label: '📥 抓取整场比赛（洛谷/牛客/AtCoder）', primary: true },
+                { cmd: 'cfTraining.pullContest', label: '📥 抓取整场比赛（CF/洛谷/牛客/AtCoder）', primary: true },
                 { cmd: 'cfTraining.plan', label: '📅 生成 / 刷新周题单', primary: true },
                 { cmd: 'cfTraining.reviewLatest', label: '🧾 复盘最近一场', primary: true },
                 { cmd: 'cfTraining.reviewInput', label: '🔍 复盘指定比赛…' }

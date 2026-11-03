@@ -1089,11 +1089,10 @@ function samplesHtml(state) {
             (t.name ? '<span class="nm">' + esc(t.name) + '</span>' : '') +
             '<span class="badge ' + cls + '">' + esc(status) + '</span>' +
             (r ? '<span class="ms">' + r.ms + ' ms</span>' : '') + del + '</div>' +
-            '<div class="lbl">输入</div><textarea class="tin" data-i="' + i + '">' + esc(t.input || '') + '</textarea>' +
-            '<div class="lbl">期望输出</div><textarea class="tout" data-i="' + i + '">' + esc(t.output || '') + '</textarea>' +
+            '<div class="lbl">输入</div><textarea class="tin" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">' + esc(t.input || '') + '</textarea>' +
+            '<div class="lbl">期望输出</div><textarea class="tout" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">' + esc(t.output || '') + '</textarea>' +
             (r && r.status !== 'PASS' ? ('<div class="lbl">实际输出</div><pre>' + esc(r.got || '(空)') + '</pre>') : '') +
-            '<div class="row"><button class="runone" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">▶ 运行此测试</button>' +
-            '<button class="save" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">💾 保存</button></div></div>';
+            '<div class="row"><button class="runone" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">▶ 运行此测试</button></div></div>';
     });
     const scoreLine = state.results
         ? ('样例 ' + samplePassed + '/' + sampleTotal + ' · 自定义 ' + customPassed + '/' + customTotal +
@@ -1139,10 +1138,11 @@ function samplesHtml(state) {
         '<div id="cases">' + cases + '</div>' +
         '<script nonce="' + nonce + '">const vscode=acquireVsCodeApi();' +
         'function val(i,c){var el=document.querySelector("."+c+"[data-i=\""+i+"\"]");return el?el.value:"";}' +
-        'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run"});});' +
+        'function collectEdits(){var vals=[];Array.prototype.forEach.call(document.querySelectorAll("textarea.tin"),function(el){var i=el.getAttribute("data-i");var out=document.querySelector(".tout[data-i=\""+i+"\"]");vals.push({kind:el.getAttribute("data-kind"),index:Number(el.getAttribute("data-index")),input:el.value,output:out?out.value:""});});return vals;}' +
+        'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run",values:collectEdits()});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:val(i,"tin"),output:val(i,"tout")});});});' +
-        'Array.prototype.forEach.call(document.querySelectorAll("button.save"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"saveTest",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:val(i,"tin"),output:val(i,"tout")});});});' +
+
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
         '</script></body></html>';
 }
@@ -1179,7 +1179,7 @@ class SamplesViewProvider {
         view.webview.onDidReceiveMessage(async function (msg) {
             if (!msg) return;
             try {
-                if (msg.command === 'run') return await self.run();
+                if (msg.command === 'run') return await self.runAll(msg);
                 if (msg.command === 'addCustom') return await self.addCustom(msg);
                 if (msg.command === 'deleteCustom') return await self.deleteCustom(msg);
                 if (msg.command === 'saveTest') return await self.saveTest(msg);
@@ -1215,6 +1215,47 @@ class SamplesViewProvider {
         }
         this.render();
     }
+    async saveEdits(values) {
+        if (!this.cpp || !Array.isArray(values) || !values.length) return;
+        const custom = readCustomTests(this.cpp).tests;
+        const overrides = readSampleOverrides(this.cpp).data;
+        let customChanged = false;
+        let sampleChanged = false;
+        values.forEach(function (v) {
+            const kind = v.kind === 'custom' ? 'custom' : 'sample';
+            const idx = Number(v.index);
+            if (!isFinite(idx) || idx < 0) return;
+            const input = String(v.input == null ? '' : v.input);
+            const output = String(v.output == null ? '' : v.output);
+            if (kind === 'custom') {
+                if (custom[idx]) {
+                    custom[idx].input = input;
+                    custom[idx].output = output;
+                    customChanged = true;
+                }
+            } else {
+                overrides[idx] = { input: input, output: output };
+                sampleChanged = true;
+            }
+        });
+        if (customChanged) writeCustomTests(this.cpp, custom);
+        if (sampleChanged) writeSampleOverrides(this.cpp, overrides);
+        this.tests.forEach(function (t) {
+            values.forEach(function (v) {
+                const kind = v.kind === 'custom' ? 'custom' : 'sample';
+                const idx = Number(v.index);
+                const ti = t.kind === 'custom' ? t.customIndex : t.sampleIndex;
+                if ((t.kind === 'custom' ? 'custom' : 'sample') === kind && ti === idx) {
+                    t.input = String(v.input == null ? '' : v.input);
+                    t.output = String(v.output == null ? '' : v.output);
+                }
+            });
+        });
+    }
+    async runAll(msg) {
+        if (msg && Array.isArray(msg.values)) await this.saveEdits(msg.values);
+        return this.run();
+    }
     async run() {
         if (!this.cpp) return this.refresh();
         this.message = '正在编译并运行测试…';
@@ -1235,7 +1276,8 @@ class SamplesViewProvider {
                     return { index: t.index || (i + 1), kind: t.kind || 'sample', name: t.name || '', input: t.input || '', output: t.output || '' };
                 });
             }
-            this.message = data.compiled === false ? '编译失败（见下方或输出面板）' : '';
+            const errLine = String(data.compileError || '').split(/\\r?\\n/).filter(function (l) { return l.trim(); })[0] || '';
+            this.message = data.compiled === false ? ('编译失败：' + errLine.slice(0, 180)) : '';
         } catch (e) {
             const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || '详见输出面板';
             this.message = '运行失败：' + first;
@@ -1315,7 +1357,8 @@ class SamplesViewProvider {
             this.results.maxScore = total;
             this.results.sampleCount = sampleTotal;
             this.results.customCount = this.tests.length - sampleTotal;
-            this.message = data.compiled === false ? '编译失败' : '';
+            const errLine = String(data.compileError || '').split(/\\r?\\n/).filter(function (l) { return l.trim(); })[0] || '';
+            this.message = data.compiled === false ? ('编译失败：' + errLine.slice(0, 180)) : '';
         } catch (e) {
             const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || '详见输出面板';
             this.message = '运行失败：' + first;
@@ -1412,6 +1455,15 @@ function activate(context) {
     try {
         if (vscode.window.onDidChangeActiveTextEditor) {
             context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(function (ed) {
+                if (ed && ed.document && ed.document.languageId === 'cpp' && samplesProvider) {
+                    try { samplesProvider.refresh(); } catch (e) { /* ignore */ }
+                }
+            }));
+        }
+    } catch (e) { /* ignore */ }
+    try {
+        if (vscode.window.onDidChangeActiveTextEditor) {
+            context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(function (ed) {
                 try {
                     if (!ed || !ed.document || ed.document.languageId !== 'cpp') return;
                     const conf = vscode.workspace.getConfiguration('cf-training-tools');
@@ -1426,7 +1478,6 @@ function activate(context) {
                             layoutCppAndMd(ed.document.fileName);
                         } catch (e) { /* ignore */ }
                     }, 350);
-                    if (samplesProvider) { try { samplesProvider.refresh(); } catch (e2) { /* ignore */ } }
                 } catch (e) { /* ignore */ }
             }));
         }

@@ -217,7 +217,8 @@ function main() {
     const hash = crypto.createHash('md5').update(cpp).digest('hex').slice(0, 10);
     const exe = path.join(BUILD, 'sol-' + hash + '.exe');
 
-    const compile = spawnSync('g++', [
+    const GPP = fs.existsSync('C:\\msys64\\ucrt64\\bin\\g++.exe') ? 'C:\\msys64\\ucrt64\\bin\\g++.exe' : 'g++';
+    const compile = spawnSync(GPP, [
         cpp, '-o', exe,
         '-std=gnu++23', '-O2', '-Wl,--stack,268435456',
         '-D', 'DEBUG', '-D', 'CPH'

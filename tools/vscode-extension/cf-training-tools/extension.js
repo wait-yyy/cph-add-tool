@@ -321,6 +321,25 @@ function writeCustomTests(cppPath, tests) {
     fs.writeFileSync(file, JSON.stringify({ tests: tests }, null, 2) + '\n', 'utf8');
 }
 
+function sampleOverridesFile(cppPath) {
+    return path.join(path.dirname(cppPath), path.basename(cppPath).replace(/\.(cpp|cc|cxx)$/i, '') + '.sample-overrides.json');
+}
+
+function readSampleOverrides(cppPath) {
+    try {
+        const data = JSON.parse(fs.readFileSync(sampleOverridesFile(cppPath), 'utf8'));
+        if (data && data.overrides && typeof data.overrides === 'object') return { data: data.overrides };
+        if (data && typeof data === 'object') return { data: data };
+    } catch (e) { /* ignore */ }
+    return { data: {} };
+}
+
+function writeSampleOverrides(cppPath, data) {
+    const file = sampleOverridesFile(cppPath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ overrides: data }, null, 2) + '\n', 'utf8');
+}
+
 // Snapshot the active editor buffer (so unsaved edits are included) into .build
 // and return that temp path for the AI call.
 function snapshotActiveCode(cppPath) {
@@ -1055,25 +1074,26 @@ function samplesHtml(state) {
     const passed = state.results ? Number(state.results.passed || 0) : 0;
     const pct = total ? Math.round(passed * 100 / total) : 0;
     let cases = '';
-    let customIdx = 0;
+    let fallbackCustom = 0;
     (state.tests || []).forEach(function (t, i) {
         const kind = t.kind === 'custom' ? 'custom' : 'sample';
-        const ci = kind === 'custom' ? customIdx++ : -1;
+        const idx = kind === 'custom'
+            ? (t.customIndex != null ? t.customIndex : fallbackCustom++)
+            : (t.sampleIndex != null ? t.sampleIndex : i);
         const r = results[i] || null;
         const status = r ? r.status : '待测';
         const cls = r ? (r.status === 'PASS' ? 'ok' : (r.status === 'FAIL' ? 'bad' : 'warn')) : 'idle';
-        const del = kind === 'custom' ? '<button class="del" data-index="' + ci + '" title="删除这条自定义测试">✕</button>' : '';
-        const title = (kind === 'custom' ? '自定义' : '样例') + (t.name ? ('：' + t.name) : '');
-        cases += '<div class="case"><div class="hd"><b>#' + (t.index || (i + 1)) + '</b>' +
+        const del = kind === 'custom' ? '<button class="del" data-index="' + idx + '" title="删除这条自定义测试">✕</button>' : '';
+        cases += '<div class="case"><div class="hd"><b>#' + (i + 1) + '</b>' +
             '<span class="kind ' + (kind === 'custom' ? 'kc' : 'ks') + '">' + (kind === 'custom' ? '自定义' : '样例') + '</span>' +
             (t.name ? '<span class="nm">' + esc(t.name) + '</span>' : '') +
             '<span class="badge ' + cls + '">' + esc(status) + '</span>' +
             (r ? '<span class="ms">' + r.ms + ' ms</span>' : '') + del + '</div>' +
-            '<details><summary>' + esc(title) + ' · 输入 / 期望输出</summary>' +
-            '<div class="lbl">输入</div><pre>' + esc(t.input || '(空)') + '</pre>' +
-            '<div class="lbl">期望输出</div><pre>' + esc(t.output || '(空)') + '</pre>' +
+            '<div class="lbl">输入</div><textarea class="tin" data-i="' + i + '">' + esc(t.input || '') + '</textarea>' +
+            '<div class="lbl">期望输出</div><textarea class="tout" data-i="' + i + '">' + esc(t.output || '') + '</textarea>' +
             (r && r.status !== 'PASS' ? ('<div class="lbl">实际输出</div><pre>' + esc(r.got || '(空)') + '</pre>') : '') +
-            '</details></div>';
+            '<div class="row"><button class="runone" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">▶ 运行此测试</button>' +
+            '<button class="save" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">💾 保存</button></div></div>';
     });
     const scoreLine = state.results
         ? ('样例 ' + samplePassed + '/' + sampleTotal + ' · 自定义 ' + customPassed + '/' + customTotal +
@@ -1097,17 +1117,17 @@ function samplesHtml(state) {
         '.badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;}.badge.ok{background:#2ea043;color:#fff;}.badge.bad{background:#da3633;color:#fff;}.badge.warn{background:#d29922;color:#fff;}.badge.idle{opacity:.6;border:1px solid currentColor;}' +
         '.ms{margin-left:auto;opacity:.65;font-size:11px;}' +
         'button.del{width:auto;margin:0 0 0 4px;padding:0 5px;background:transparent;color:var(--vscode-errorForeground);font-size:12px;}' +
-        'summary{cursor:pointer;opacity:.8;font-size:12px;}' +
         '.lbl{font-size:11px;opacity:.65;margin-top:4px;}' +
-        'pre{background:var(--vscode-textCodeBlock-background);padding:5px;border-radius:3px;overflow:auto;max-height:220px;white-space:pre;font-size:12px;}' +
-        '.form{margin:6px 0;}.form input,.form textarea{width:100%;box-sizing:border-box;margin:3px 0;padding:4px 6px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,rgba(128,128,128,.4));border-radius:3px;font-family:inherit;font-size:12px;}' +
-        '.form textarea{min-height:54px;resize:vertical;}' +
+        'textarea{width:100%;box-sizing:border-box;margin:2px 0;padding:4px 6px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,rgba(128,128,128,.4));border-radius:3px;font-family:var(--vscode-editor-font-family,monospace);font-size:12px;min-height:44px;resize:vertical;}' +
+        'pre{background:var(--vscode-textCodeBlock-background);padding:5px;border-radius:3px;overflow:auto;max-height:180px;white-space:pre;font-size:12px;}' +
+        '.row{display:flex;gap:4px;}.row button{width:auto;flex:1;margin-top:4px;}' +
+        '.form{margin:6px 0;}.form input{width:100%;box-sizing:border-box;margin:3px 0;padding:4px 6px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,rgba(128,128,128,.4));border-radius:3px;font-family:inherit;font-size:12px;}' +
         '</style></head><body>' +
         '<h3>样例自测</h3><div class="title">' + esc(state.cpp ? path.basename(state.cpp) : '未打开题目') + '</div>' +
         '<div class="muted">' + (state.source ? ('样例：' + esc(path.basename(state.source))) : '') + (state.customSource ? (' · 自定义：' + esc(path.basename(state.customSource))) : '') + '</div>' +
         msg +
         '<div class="score">' + scoreLine + '</div><div class="bar"><i></i></div>' +
-        '<button id="run">▶ 运行全部测试</button><button id="refresh" class="secondary">🔄 重新读取样例</button>' +
+        '<button id="run">▶ 运行全部测试</button>' +
         '<h3>自定义测试</h3>' +
         '<div class="form">' +
         '<input id="cname" placeholder="名称（可选）">' +
@@ -1115,12 +1135,14 @@ function samplesHtml(state) {
         '<textarea id="cout" placeholder="期望输出（用于计分，必填）"></textarea>' +
         '<button id="add">➕ 添加并运行</button>' +
         '</div>' +
-        '<div class="muted">自定义测试保存在同目录 题号.custom-tests.json</div>' +
+        '<div class="muted">自定义测试保存在同目录 题号.custom-tests.json；样例修改保存在 题号.sample-overrides.json</div>' +
         '<div id="cases">' + cases + '</div>' +
         '<script nonce="' + nonce + '">const vscode=acquireVsCodeApi();' +
+        'function val(i,c){var el=document.querySelector("."+c+"[data-i=\""+i+"\"]");return el?el.value:"";}' +
         'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run"});});' +
-        'document.getElementById("refresh").addEventListener("click",function(){vscode.postMessage({command:"refresh"});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
+        'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:val(i,"tin"),output:val(i,"tout")});});});' +
+        'Array.prototype.forEach.call(document.querySelectorAll("button.save"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"saveTest",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:val(i,"tin"),output:val(i,"tout")});});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
         '</script></body></html>';
 }
@@ -1158,9 +1180,10 @@ class SamplesViewProvider {
             if (!msg) return;
             try {
                 if (msg.command === 'run') return await self.run();
-                if (msg.command === 'refresh') return await self.refresh();
                 if (msg.command === 'addCustom') return await self.addCustom(msg);
                 if (msg.command === 'deleteCustom') return await self.deleteCustom(msg);
+                if (msg.command === 'saveTest') return await self.saveTest(msg);
+                if (msg.command === 'runOne') return await self.runOne(msg);
             } catch (e) {
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
             }
@@ -1213,6 +1236,86 @@ class SamplesViewProvider {
                 });
             }
             this.message = data.compiled === false ? '编译失败（见下方或输出面板）' : '';
+        } catch (e) {
+            const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || '详见输出面板';
+            this.message = '运行失败：' + first;
+        }
+        this.render();
+    }
+    async saveTest(msg) {
+        if (!this.cpp) return;
+        const kind = msg.kind === 'custom' ? 'custom' : 'sample';
+        const idx = Number(msg.index);
+        if (!isFinite(idx) || idx < 0) return;
+        const input = String(msg.input == null ? '' : msg.input);
+        const output = String(msg.output == null ? '' : msg.output);
+        if (kind === 'custom') {
+            const list = readCustomTests(this.cpp).tests;
+            if (list[idx]) {
+                list[idx].input = input;
+                list[idx].output = output;
+                writeCustomTests(this.cpp, list);
+            }
+        } else {
+            const ov = readSampleOverrides(this.cpp);
+            ov.data[idx] = { input: input, output: output };
+            writeSampleOverrides(this.cpp, ov.data);
+        }
+        this.tests.forEach(function (t) {
+            const ti = t.kind === 'custom' ? t.customIndex : t.sampleIndex;
+            if ((t.kind === 'custom' ? 'custom' : 'sample') === kind && ti === idx) {
+                t.input = input;
+                t.output = output;
+            }
+        });
+        this.message = '已保存';
+        this.render();
+    }
+    async runOne(msg) {
+        if (!this.cpp) return;
+        const kind = msg.kind === 'custom' ? 'custom' : 'sample';
+        const idx = Number(msg.index);
+        if (!isFinite(idx) || idx < 0) return;
+        const input = String(msg.input == null ? '' : msg.input);
+        const output = String(msg.output == null ? '' : msg.output);
+        await this.saveTest({ kind: kind, index: idx, input: input, output: output });
+        this.message = '正在运行单个测试…';
+        this.render();
+        const args = [this.cpp, kind === 'custom' ? '--only-custom' : '--only-sample', String(idx)];
+        const res = await runNode('sample-tests.js', args, '运行单个测试…', { cancellable: true });
+        if (res.cancelled) {
+            this.message = '已取消';
+            this.render();
+            return;
+        }
+        try {
+            const data = JSON.parse(String(res.stdout || '{}'));
+            const one = (data.tests || [])[0];
+            if (!one) throw new Error('没有结果');
+            const sampleTotal = this.tests.filter(function (t) { return t.kind !== 'custom'; }).length;
+            const globalIdx = kind === 'custom' ? sampleTotal + idx : idx;
+            if (!this.results || !Array.isArray(this.results.tests)) {
+                this.results = {
+                    tests: this.tests.map(function (t, i) {
+                        return { index: i + 1, kind: t.kind, name: t.name || '', status: '待测', ms: 0, input: t.input, output: t.output, got: '' };
+                    }),
+                    sampleCount: sampleTotal,
+                    customCount: this.tests.length - sampleTotal
+                };
+            }
+            if (globalIdx >= 0 && globalIdx < this.results.tests.length) {
+                one.index = globalIdx + 1;
+                this.results.tests[globalIdx] = one;
+            }
+            const total = this.results.tests.length;
+            const passed = this.results.tests.filter(function (x) { return x.status === 'PASS'; }).length;
+            this.results.total = total;
+            this.results.passed = passed;
+            this.results.score = passed;
+            this.results.maxScore = total;
+            this.results.sampleCount = sampleTotal;
+            this.results.customCount = this.tests.length - sampleTotal;
+            this.message = data.compiled === false ? '编译失败' : '';
         } catch (e) {
             const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || '详见输出面板';
             this.message = '运行失败：' + first;

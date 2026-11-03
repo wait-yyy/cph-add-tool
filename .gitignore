@@ -1,5 +1,6 @@
 # ---- personal solutions / pulled problems ----
 *.custom-tests.json
+*.sample-overrides.json
 /codeforces/
 /atcoder/
 /luogu/

@@ -113,6 +113,21 @@ function readCustomTests(cpp) {
     };
 }
 
+function readSampleOverrides(cpp) {
+    const dir = path.dirname(cpp);
+    const stem = path.basename(cpp).replace(/\.(cpp|cc|cxx)$/i, '');
+    const file = path.join(dir, stem + '.sample-overrides.json');
+    let data = {};
+    try {
+        const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (parsed && parsed.overrides) data = parsed.overrides;
+        else if (parsed && typeof parsed === 'object') data = parsed;
+    } catch (e) {
+        data = {};
+    }
+    return { file: file, data: data };
+}
+
 function main() {
     const args = process.argv.slice(2);
     const listOnly = args.indexOf('--list') >= 0;
@@ -121,22 +136,44 @@ function main() {
     if (!cpp || !fs.existsSync(cpp)) fail('usage: node tools/sample-tests.js [--list] <problem.cpp>');
     const samples = findSamples(cpp);
     const custom = readCustomTests(cpp);
+    const overrides = readSampleOverrides(cpp);
     let allTests = [];
     if (samples) {
-        allTests = samples.tests.map(function (t) {
-            return { kind: 'sample', name: '', input: t.input, output: t.output };
+        allTests = samples.tests.map(function (t, i) {
+            const o = overrides.data[i] || overrides.data[String(i)] || null;
+            return {
+                kind: 'sample',
+                name: '',
+                sampleIndex: i,
+                input: o ? String(o.input == null ? '' : o.input) : t.input,
+                output: o ? String(o.output == null ? '' : o.output) : t.output
+            };
         });
     }
-    allTests = allTests.concat(custom.tests.map(function (t) {
-        return { kind: 'custom', name: t.name, input: t.input, output: t.output };
+    allTests = allTests.concat(custom.tests.map(function (t, i) {
+        return { kind: 'custom', name: t.name, customIndex: i, input: t.input, output: t.output };
     }));
 
     const argsForMode = process.argv.slice(2);
     const samplesOnly = argsForMode.indexOf('--samples-only') >= 0;
     const customOnly = argsForMode.indexOf('--custom-only') >= 0;
+    let onlyKind = '';
+    let onlyIndex = -1;
+    for (let ai = 0; ai < argsForMode.length; ai++) {
+        if (argsForMode[ai] === '--only-sample' || argsForMode[ai] === '--only-custom') {
+            onlyKind = argsForMode[ai] === '--only-sample' ? 'sample' : 'custom';
+            onlyIndex = parseInt(argsForMode[ai + 1], 10);
+            break;
+        }
+    }
     let selected = allTests;
     if (samplesOnly && !customOnly) selected = allTests.filter(function (t) { return t.kind === 'sample'; });
     if (customOnly && !samplesOnly) selected = allTests.filter(function (t) { return t.kind === 'custom'; });
+    if (onlyKind && onlyIndex >= 0) {
+        selected = allTests.filter(function (t) {
+            return t.kind === onlyKind && (onlyKind === 'sample' ? t.sampleIndex : t.customIndex) === onlyIndex;
+        });
+    }
 
     if (!selected.length) {
         console.log(JSON.stringify({
@@ -162,7 +199,15 @@ function main() {
             sampleCount: sampleCount,
             customCount: customCount,
             tests: selected.map(function (t, i) {
-                return { index: i + 1, kind: t.kind, name: t.name, input: t.input, output: t.output };
+                return {
+                    index: i + 1,
+                    kind: t.kind,
+                    name: t.name,
+                    sampleIndex: t.sampleIndex,
+                    customIndex: t.customIndex,
+                    input: t.input,
+                    output: t.output
+                };
             })
         }));
         return 0;
@@ -216,6 +261,8 @@ function main() {
             index: i + 1,
             kind: t.kind,
             name: t.name,
+            sampleIndex: t.sampleIndex,
+            customIndex: t.customIndex,
             input: t.input,
             output: t.output,
             status: status,

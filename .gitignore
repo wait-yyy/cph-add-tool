@@ -1,4 +1,5 @@
 # ---- personal solutions / pulled problems ----
+*.custom-tests.json
 /codeforces/
 /atcoder/
 /luogu/

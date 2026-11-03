@@ -89,6 +89,30 @@ function findSamples(cpp) {
     return null;
 }
 
+function readCustomTests(cpp) {
+    const dir = path.dirname(cpp);
+    const stem = path.basename(cpp).replace(/\.(cpp|cc|cxx)$/i, '');
+    const file = path.join(dir, stem + '.custom-tests.json');
+    let tests = [];
+    try {
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (Array.isArray(data.tests)) tests = data.tests;
+        else if (Array.isArray(data)) tests = data;
+    } catch (e) {
+        tests = [];
+    }
+    return {
+        file: file,
+        tests: tests.map(function (t) {
+            return {
+                name: String(t.name || ''),
+                input: String(t.input == null ? '' : t.input),
+                output: String(t.output == null ? '' : t.output)
+            };
+        })
+    };
+}
+
 function main() {
     const args = process.argv.slice(2);
     const listOnly = args.indexOf('--list') >= 0;
@@ -96,18 +120,49 @@ function main() {
     const cpp = rest[0] ? path.resolve(ROOT, rest[0]) : '';
     if (!cpp || !fs.existsSync(cpp)) fail('usage: node tools/sample-tests.js [--list] <problem.cpp>');
     const samples = findSamples(cpp);
-    if (!samples) {
-        console.log(JSON.stringify({ cpp: cpp, source: '', tests: [], error: '没有找到样例（同目录 .json 或 .cph 缓存）' }));
+    const custom = readCustomTests(cpp);
+    let allTests = [];
+    if (samples) {
+        allTests = samples.tests.map(function (t) {
+            return { kind: 'sample', name: '', input: t.input, output: t.output };
+        });
+    }
+    allTests = allTests.concat(custom.tests.map(function (t) {
+        return { kind: 'custom', name: t.name, input: t.input, output: t.output };
+    }));
+
+    const argsForMode = process.argv.slice(2);
+    const samplesOnly = argsForMode.indexOf('--samples-only') >= 0;
+    const customOnly = argsForMode.indexOf('--custom-only') >= 0;
+    let selected = allTests;
+    if (samplesOnly && !customOnly) selected = allTests.filter(function (t) { return t.kind === 'sample'; });
+    if (customOnly && !samplesOnly) selected = allTests.filter(function (t) { return t.kind === 'custom'; });
+
+    if (!selected.length) {
+        console.log(JSON.stringify({
+            cpp: cpp,
+            source: samples ? samples.source : '',
+            customSource: custom.file,
+            tests: [],
+            error: allTests.length ? '当前模式下没有测试用例' : '没有找到样例；也没有自定义测试（同目录 .json / .cph / .custom-tests.json）'
+        }));
         return 0;
     }
+
+    const tl = samples ? Math.max(500, samples.timeLimitMs || 2000) : 2000;
+    const sampleCount = selected.filter(function (t) { return t.kind === 'sample'; }).length;
+    const customCount = selected.filter(function (t) { return t.kind === 'custom'; }).length;
 
     if (listOnly) {
         console.log(JSON.stringify({
             cpp: cpp,
-            source: samples.source,
-            timeLimitMs: samples.timeLimitMs,
-            tests: samples.tests.map(function (t, i) {
-                return { index: i + 1, input: t.input, output: t.output };
+            source: samples ? samples.source : '',
+            customSource: custom.file,
+            timeLimitMs: tl,
+            sampleCount: sampleCount,
+            customCount: customCount,
+            tests: selected.map(function (t, i) {
+                return { index: i + 1, kind: t.kind, name: t.name, input: t.input, output: t.output };
             })
         }));
         return 0;
@@ -131,17 +186,18 @@ function main() {
             compileError: String((compile.stderr || '') + (compile.error ? compile.error.message : '')).slice(-4000),
             tests: [],
             passed: 0,
-            total: samples.tests.length,
+            total: selected.length,
+            sampleCount: sampleCount,
+            customCount: customCount,
             score: 0,
-            maxScore: samples.tests.length
+            maxScore: selected.length
         }));
         return 0;
     }
 
     const results = [];
     let passed = 0;
-    const tl = Math.max(500, samples.timeLimitMs || 2000);
-    samples.tests.forEach(function (t, i) {
+    selected.forEach(function (t, i) {
         const started = process.hrtime.bigint();
         const r = spawnSync(exe, [], {
             input: t.input,
@@ -158,6 +214,8 @@ function main() {
         if (status === 'PASS') passed++;
         results.push({
             index: i + 1,
+            kind: t.kind,
+            name: t.name,
             input: t.input,
             output: t.output,
             status: status,
@@ -168,14 +226,17 @@ function main() {
 
     console.log(JSON.stringify({
         cpp: cpp,
-        source: samples.source,
+        source: samples ? samples.source : '',
+        customSource: custom.file,
         compiled: true,
         compileError: '',
         tests: results,
         passed: passed,
-        total: samples.tests.length,
+        total: selected.length,
+        sampleCount: sampleCount,
+        customCount: customCount,
         score: passed,
-        maxScore: samples.tests.length
+        maxScore: selected.length
     }));
     return 0;
 }

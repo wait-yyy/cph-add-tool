@@ -302,6 +302,25 @@ function cfCookiePath() {
     return path.join(workspaceRoot(), 'training', 'cf-cookies.txt');
 }
 
+function customTestsFile(cppPath) {
+    return path.join(path.dirname(cppPath), path.basename(cppPath).replace(/\.(cpp|cc|cxx)$/i, '') + '.custom-tests.json');
+}
+
+function readCustomTests(cppPath) {
+    try {
+        const data = JSON.parse(fs.readFileSync(customTestsFile(cppPath), 'utf8'));
+        if (Array.isArray(data.tests)) return { tests: data.tests };
+        if (Array.isArray(data)) return { tests: data };
+    } catch (e) { /* ignore */ }
+    return { tests: [] };
+}
+
+function writeCustomTests(cppPath, tests) {
+    const file = customTestsFile(cppPath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ tests: tests }, null, 2) + '\n', 'utf8');
+}
+
 // Snapshot the active editor buffer (so unsaved edits are included) into .build
 // and return that temp path for the AI call.
 function snapshotActiveCode(cppPath) {
@@ -1023,54 +1042,86 @@ function samplesHtml(state) {
     for (let i = 0; i < 24; i++) nonce += nonceSrc.charAt(Math.floor(Math.random() * nonceSrc.length));
     const esc = escapeHtml;
     const results = state.results && Array.isArray(state.results.tests) ? state.results.tests : [];
+    const sampleTotal = state.results ? Number(state.results.sampleCount || 0) : state.tests.filter(function (t) { return t.kind !== 'custom'; }).length;
+    const customTotal = state.results ? Number(state.results.customCount || 0) : state.tests.filter(function (t) { return t.kind === 'custom'; }).length;
+    let samplePassed = 0;
+    let customPassed = 0;
+    results.forEach(function (r) {
+        if (r.status !== 'PASS') return;
+        if (r.kind === 'custom') customPassed++;
+        else samplePassed++;
+    });
+    const total = state.results ? Number(state.results.total || results.length) : state.tests.length;
+    const passed = state.results ? Number(state.results.passed || 0) : 0;
+    const pct = total ? Math.round(passed * 100 / total) : 0;
     let cases = '';
+    let customIdx = 0;
     (state.tests || []).forEach(function (t, i) {
+        const kind = t.kind === 'custom' ? 'custom' : 'sample';
+        const ci = kind === 'custom' ? customIdx++ : -1;
         const r = results[i] || null;
         const status = r ? r.status : '待测';
         const cls = r ? (r.status === 'PASS' ? 'ok' : (r.status === 'FAIL' ? 'bad' : 'warn')) : 'idle';
+        const del = kind === 'custom' ? '<button class="del" data-index="' + ci + '" title="删除这条自定义测试">✕</button>' : '';
+        const title = (kind === 'custom' ? '自定义' : '样例') + (t.name ? ('：' + t.name) : '');
         cases += '<div class="case"><div class="hd"><b>#' + (t.index || (i + 1)) + '</b>' +
+            '<span class="kind ' + (kind === 'custom' ? 'kc' : 'ks') + '">' + (kind === 'custom' ? '自定义' : '样例') + '</span>' +
+            (t.name ? '<span class="nm">' + esc(t.name) + '</span>' : '') +
             '<span class="badge ' + cls + '">' + esc(status) + '</span>' +
-            (r ? '<span class="ms">' + r.ms + ' ms</span>' : '') + '</div>' +
-            '<details><summary>输入 / 输出</summary>' +
+            (r ? '<span class="ms">' + r.ms + ' ms</span>' : '') + del + '</div>' +
+            '<details><summary>' + esc(title) + ' · 输入 / 期望输出</summary>' +
             '<div class="lbl">输入</div><pre>' + esc(t.input || '(空)') + '</pre>' +
             '<div class="lbl">期望输出</div><pre>' + esc(t.output || '(空)') + '</pre>' +
             (r && r.status !== 'PASS' ? ('<div class="lbl">实际输出</div><pre>' + esc(r.got || '(空)') + '</pre>') : '') +
             '</details></div>';
     });
-    const total = state.results ? Number(state.results.total || state.tests.length) : state.tests.length;
-    const passed = state.results ? Number(state.results.passed || 0) : 0;
-    const pct = total ? Math.round(passed * 100 / total) : 0;
     const scoreLine = state.results
-        ? ('通过 ' + passed + ' / ' + total + ' · 得分 ' + passed + ' / ' + total + '（' + pct + '%）')
-        : ('共 ' + total + ' 个样例 · 点击「运行全部」开始');
+        ? ('样例 ' + samplePassed + '/' + sampleTotal + ' · 自定义 ' + customPassed + '/' + customTotal +
+            ' · 总得分 ' + passed + '/' + total + '（' + pct + '%）')
+        : ('共 ' + total + ' 个测试（样例 ' + sampleTotal + ' + 自定义 ' + customTotal + '）· 点击「运行全部测试」');
     const msg = state.message ? '<div class="msg">' + esc(state.message) + '</div>' : '';
     return '<!DOCTYPE html>\n<html lang="zh-CN"><head><meta charset="utf-8">' +
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'nonce-' + nonce + '\';">' +
         '<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>' +
         'body{padding:8px 12px 16px;color:var(--vscode-foreground);font-family:var(--vscode-font-family);font-size:13px;}' +
-        'h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.65;margin:8px 0 6px;}' +
+        'h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.65;margin:10px 0 6px;}' +
         '.title{font-weight:600;margin:0 0 2px;}.muted{opacity:.7;font-size:12px;}.msg{color:var(--vscode-errorForeground);margin:6px 0;}' +
         '.score{font-size:13px;margin:6px 0 4px;}.bar{height:14px;background:rgba(128,128,128,.3);border-radius:7px;overflow:hidden;margin-bottom:10px;}' +
         '.bar i{display:block;height:100%;width:' + pct + '%;background:var(--vscode-testing-iconPassed,#3fb950);}' +
         'button{width:100%;margin:4px 0;padding:6px 10px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-family:inherit;background:var(--vscode-button-background);color:var(--vscode-button-foreground);}' +
         'button.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);}' +
         '.case{border:1px solid var(--vscode-panel-border,rgba(128,128,128,.35));border-radius:4px;margin:6px 0;padding:6px 8px;}' +
-        '.hd{display:flex;align-items:center;gap:8px;}.hd b{flex:0 0 auto;}.badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;}' +
-        '.badge.ok{background:#2ea043;color:#fff;}.badge.bad{background:#da3633;color:#fff;}.badge.warn{background:#d29922;color:#fff;}.badge.idle{opacity:.6;border:1px solid currentColor;}' +
+        '.hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}.hd b{flex:0 0 auto;}' +
+        '.kind{font-size:10px;padding:1px 4px;border-radius:3px;}.kind.ks{background:rgba(56,139,253,.25);}.kind.kc{background:rgba(210,153,34,.3);}' +
+        '.nm{font-size:11px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;}' +
+        '.badge{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;}.badge.ok{background:#2ea043;color:#fff;}.badge.bad{background:#da3633;color:#fff;}.badge.warn{background:#d29922;color:#fff;}.badge.idle{opacity:.6;border:1px solid currentColor;}' +
         '.ms{margin-left:auto;opacity:.65;font-size:11px;}' +
+        'button.del{width:auto;margin:0 0 0 4px;padding:0 5px;background:transparent;color:var(--vscode-errorForeground);font-size:12px;}' +
         'summary{cursor:pointer;opacity:.8;font-size:12px;}' +
         '.lbl{font-size:11px;opacity:.65;margin-top:4px;}' +
         'pre{background:var(--vscode-textCodeBlock-background);padding:5px;border-radius:3px;overflow:auto;max-height:220px;white-space:pre;font-size:12px;}' +
+        '.form{margin:6px 0;}.form input,.form textarea{width:100%;box-sizing:border-box;margin:3px 0;padding:4px 6px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,rgba(128,128,128,.4));border-radius:3px;font-family:inherit;font-size:12px;}' +
+        '.form textarea{min-height:54px;resize:vertical;}' +
         '</style></head><body>' +
         '<h3>样例自测</h3><div class="title">' + esc(state.cpp ? path.basename(state.cpp) : '未打开题目') + '</div>' +
-        '<div class="muted">' + (state.source ? ('数据：' + esc(path.basename(state.source))) : '') + '</div>' +
+        '<div class="muted">' + (state.source ? ('样例：' + esc(path.basename(state.source))) : '') + (state.customSource ? (' · 自定义：' + esc(path.basename(state.customSource))) : '') + '</div>' +
         msg +
         '<div class="score">' + scoreLine + '</div><div class="bar"><i></i></div>' +
-        '<button id="run">▶ 运行全部样例</button><button id="refresh" class="secondary">🔄 重新读取样例</button>' +
+        '<button id="run">▶ 运行全部测试</button><button id="refresh" class="secondary">🔄 重新读取样例</button>' +
+        '<h3>自定义测试</h3>' +
+        '<div class="form">' +
+        '<input id="cname" placeholder="名称（可选）">' +
+        '<textarea id="cin" placeholder="输入（stdin）"></textarea>' +
+        '<textarea id="cout" placeholder="期望输出（用于计分，必填）"></textarea>' +
+        '<button id="add">➕ 添加并运行</button>' +
+        '</div>' +
+        '<div class="muted">自定义测试保存在同目录 题号.custom-tests.json</div>' +
         '<div id="cases">' + cases + '</div>' +
         '<script nonce="' + nonce + '">const vscode=acquireVsCodeApi();' +
         'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run"});});' +
         'document.getElementById("refresh").addEventListener("click",function(){vscode.postMessage({command:"refresh"});});' +
+        'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
+        'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
         '</script></body></html>';
 }
 
@@ -1080,12 +1131,20 @@ class SamplesViewProvider {
         this.view = null;
         this.cpp = '';
         this.source = '';
+        this.customSource = '';
         this.tests = [];
         this.results = null;
         this.message = '';
     }
     state() {
-        return { cpp: this.cpp, source: this.source, tests: this.tests, results: this.results, message: this.message };
+        return {
+            cpp: this.cpp,
+            source: this.source,
+            customSource: this.customSource,
+            tests: this.tests,
+            results: this.results,
+            message: this.message
+        };
     }
     render() {
         if (this.view) this.view.webview.html = samplesHtml(this.state());
@@ -1100,6 +1159,8 @@ class SamplesViewProvider {
             try {
                 if (msg.command === 'run') return await self.run();
                 if (msg.command === 'refresh') return await self.refresh();
+                if (msg.command === 'addCustom') return await self.addCustom(msg);
+                if (msg.command === 'deleteCustom') return await self.deleteCustom(msg);
             } catch (e) {
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
             }
@@ -1109,6 +1170,7 @@ class SamplesViewProvider {
     async refresh() {
         this.cpp = activeCppPath() || '';
         this.source = '';
+        this.customSource = '';
         this.tests = [];
         this.results = null;
         this.message = '';
@@ -1123,6 +1185,7 @@ class SamplesViewProvider {
             const data = JSON.parse(String(res.stdout || '{}'));
             this.tests = Array.isArray(data.tests) ? data.tests : [];
             this.source = data.source || '';
+            this.customSource = data.customSource || '';
             if (data.error) this.message = data.error;
         } catch (e) {
             this.message = '读取样例失败';
@@ -1131,7 +1194,7 @@ class SamplesViewProvider {
     }
     async run() {
         if (!this.cpp) return this.refresh();
-        this.message = '正在编译并运行样例…';
+        this.message = '正在编译并运行测试…';
         this.render();
         const res = await runNode('sample-tests.js', [this.cpp], '运行样例自测…', { cancellable: true });
         if (res.cancelled) {
@@ -1143,9 +1206,10 @@ class SamplesViewProvider {
             const data = JSON.parse(String(res.stdout || '{}'));
             this.results = data;
             this.source = data.source || this.source;
+            this.customSource = data.customSource || this.customSource;
             if (!this.tests.length && Array.isArray(data.tests)) {
                 this.tests = data.tests.map(function (t, i) {
-                    return { index: t.index || (i + 1), input: t.input || '', output: t.output || '' };
+                    return { index: t.index || (i + 1), kind: t.kind || 'sample', name: t.name || '', input: t.input || '', output: t.output || '' };
                 });
             }
             this.message = data.compiled === false ? '编译失败（见下方或输出面板）' : '';
@@ -1154,6 +1218,32 @@ class SamplesViewProvider {
             this.message = '运行失败：' + first;
         }
         this.render();
+    }
+    async addCustom(msg) {
+        if (!this.cpp) return this.refresh();
+        const input = String(msg.input == null ? '' : msg.input);
+        const output = String(msg.output == null ? '' : msg.output);
+        if (!input.trim() || !output.trim()) {
+            this.message = '输入和期望输出都要填写（期望输出用于计分）';
+            this.render();
+            return;
+        }
+        const list = readCustomTests(this.cpp).tests;
+        list.push({ name: String(msg.name || '').trim(), input: input, output: output });
+        writeCustomTests(this.cpp, list);
+        this.message = '已添加自定义测试';
+        await this.refresh();
+        await this.run();
+    }
+    async deleteCustom(msg) {
+        if (!this.cpp) return;
+        const list = readCustomTests(this.cpp).tests;
+        const idx = Number(msg.index);
+        if (!isFinite(idx) || idx < 0 || idx >= list.length) return;
+        list.splice(idx, 1);
+        writeCustomTests(this.cpp, list);
+        this.results = null;
+        await this.refresh();
     }
 }
 

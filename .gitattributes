@@ -1,0 +1,5 @@
+# 默认按文本处理，但不要动 BOM（含中文的 .ps1 必须保留 UTF-8 BOM）
+* text=auto
+*.ps1 text eol=crlf
+*.js text eol=lf
+*.md text eol=lf

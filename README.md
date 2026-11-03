@@ -1,0 +1,166 @@
+# CF 训练助手 · 算法竞赛工作区工具包
+
+一套 Windows + VS Code 的算法竞赛（Codeforces / AtCoder / 洛谷 / 牛客）训练工具：
+拉题自动建目录并抓题面、中英对照 Markdown、AI 提示/复盘、周题单、赛后复盘、整场比赛一键抓取，以及一个活动栏面板把这些操作变成按钮。
+
+> 这是从个人工作区整理出来的**工具包**：只包含脚本、VS Code 插件源码、模板和文档，不包含题目代码、比赛数据和个人配置。
+
+## 功能
+
+- **CPH 拉题增强**（Competitive Programming Helper 扩展补丁）
+  - 按比赛自动建目录：`codeforces/<比赛>/<题号>.cpp`（`.cph` 样例缓存、`.bin` 跟着走）
+  - 拉题自动抓题面 → 中英对照 `<题号>.md`，并自动打开预览（只对当前正在编辑的题生效，整场拉题不会弹一堆）
+- **多平台题面抓取**
+  - 单题：`tools\cph-statement.js` 支持 Codeforces / AtCoder / 洛谷 / 牛客
+  - 整场：`tools\pull-contest.js` 抓一场比赛全部题面 + 建 cpp + 生成 CPH 样例缓存
+- **AI 助手**（任意 OpenAI 兼容 API：DeepSeek / SiliconFlow / 自建网关）
+  - 题面翻译：拉题时优先 AI 翻译，失败自动退回 Bing
+  - AI 提示：先读当前编辑器代码（含未保存修改）做「代码体检」，再按级别给提示（方向 → 思路 → 伪代码，不直接给完整代码）
+  - 问 AI：带题面 + 当前代码提问
+  - AI 复盘：赛后逐题分析卡点、关键观察、总结，生成 `review.ai.md`
+- **训练工具**
+  - 周题单：按 CF 弱项 tag + 难度，从 Codeforces / AtCoder / 洛谷三平台选题（`training/plan.md`）
+  - 重做队列：AC 但错 ≥3 次的题（`training/redo.md`）
+  - 赛后复盘：拉 CF API 数据生成 `review.md` 模板（`tools\cf-review.ps1`）
+- **本地做题工具**
+  - `tools\cp.ps1`：编译（gnu++23 + O2 + 大栈）、跑样例、手写输入、对拍
+  - `tools\mkdata.ps1`：造题数据生成与校验
+- **VS Code 面板**：活动栏「CF 训练」+ 状态栏菜单，所有操作一键触发；支持 AI 配置、CPH 补丁状态、题单展示
+
+## 环境要求
+
+- Windows 10/11，PowerShell 5.1（系统自带）
+- VS Code（含内置 Markdown 预览）
+- Node.js（`node` 在 PATH 中）
+- g++ 与 gdb：推荐 [MSYS2 UCRT64](https://www.msys2.org/)（默认路径 `C:\msys64\ucrt64\bin`）
+- Windows 自带 `curl.exe`（抓题面用）
+- 浏览器插件 [Competitive Companion](https://github.com/jmerle/competitive-companion) + VS Code 扩展 [Competitive Programming Helper](https://marketplace.visualstudio.com/items?itemName=DivyanshuAgrawal.competitive-programming-helper)
+
+## 快速开始
+
+1. 克隆仓库，用 VS Code **打开整个文件夹**（工作区根目录就是本仓库根目录）：
+
+   ```powershell
+   git clone <仓库地址> 算竞
+   code 算竞
+   ```
+
+2. **安装本地 VS Code 插件**（活动栏会出现「CF 训练」）：
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extension.ps1
+   ```
+
+   然后在 VS Code 里 `Ctrl+Shift+P` → `Developer: Reload Window`。
+
+3. **给 CPH 扩展打补丁**（自动建比赛目录 + 拉题抓题面）：
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File tools\cph-folder-patch.ps1 -Action apply
+   ```
+
+   状态 / 回滚：`-Action status` / `-Action revert`。CPH 扩展升级后补丁会失效，重新 `-Action apply` 即可。
+
+4. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `CF 训练`，或编辑 `training/ai-config.json`：
+
+   ```json
+   { "baseUrl": "https://api.deepseek.com", "apiKey": "sk-...", "model": "deepseek-flash" }
+   ```
+
+   然后点「🔌 测试 AI 连接」。API Key 只保存在本机，**不要提交到仓库**（`.gitignore` 已忽略 `training/ai-config.json`）。
+
+5. 把 `new.cpp` 改成你自己的代码模板（`tools\pull-contest.js` 会用它生成新题文件）。
+
+## 常用命令
+
+```powershell
+# 拉题（浏览器点 Competitive Companion，题自动进 codeforces/<比赛>/，并生成题面 md）
+
+# 编译 / 跑样例 / 手写输入 / 对拍
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 build   -Solution "codeforces\1131 div3\2278A.cpp"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 samples -Solution "codeforces\1131 div3\2278A.cpp"
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 run     -Solution "codeforces\1131 div3\2278A.cpp" -InFile .build\case1.in
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress  -Solution sol.cpp -Brute brute.cpp -Generator gen.cpp -Rounds 300
+
+# 题面：单题 / 整场
+node tools\cph-statement.js "https://codeforces.com/contest/2278/problem/A" "codeforces\1131 div3\2278A.md" --force
+node tools\pull-contest.js https://atcoder.jp/contests/abc402
+node tools\pull-contest.js https://www.luogu.com.cn/contest/251050
+node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
+
+# 周题单 / 赛后复盘
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cf-plan.ps1 -Count 6
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\cf-review.ps1 -ContestId 2278
+
+# AI：连通性 / 整篇翻译 / 复盘分析 / 分级提示 / 问答
+node tools\ai-client.js ping
+node tools\ai-client.js translate "codeforces\1131 div3\2278A.md" --out .build\2278A.zh.md
+node tools\ai-client.js review "codeforces\1131 div3" --out "codeforces\1131 div3\review.ai.md"
+node tools\ai-client.js hint --md "codeforces\1131 div3\2278A.md" --cpp "codeforces\1131 div3\2278A.cpp" --level 2
+node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforces\1131 div3\2278A.cpp" --question "我的做法为什么 WA？"
+```
+
+## 插件面板（活动栏「CF 训练」）
+
+- **AI 助手**：AI 提示（当前题）、问 AI、AI 复盘、AI 翻译题面、设置 AI API、测试连接、在 VS Code 设置中编辑
+- **训练**：抓取整场比赛（洛谷/牛客/AtCoder）、生成/刷新周题单、复盘最近一场、复盘指定比赛
+- **题面**：打开当前题面预览、重新抓取当前题面、重新生成全部题面 md
+- **代码**：编译并跑样例、只编译
+- **设置/维护**：设置 CF handle、CPH 补丁状态/重打/回滚、打开训练手册
+
+状态栏也有「CF 训练」和 AI 配置状态入口。
+
+## 平台支持
+
+| 平台 | 拉题到本地 | 题面 md | 整场抓取 | 样例缓存 |
+| --- | --- | --- | --- | --- |
+| Codeforces（正赛） | CPH 拉题 | ✅ | —（CPH 逐题拉即可） | ✅ |
+| Codeforces Gym / 私有题 | CPH 可拉，但题面需登录 | ❌ | — | ✅ |
+| AtCoder | CPH 拉题 | ✅ | ✅ `pull-contest.js` | ✅ |
+| 洛谷 | ❌（CPH 不支持） | ✅ | ✅ `pull-contest.js` | ✅ |
+| 牛客 | ❌（CPH 不支持） | ✅ | ✅ `pull-contest.js` | ✅ |
+
+## 目录结构
+
+```
+.
+├─ AGENTS.md                 # 给 AI coding agent 的工作区操作手册（环境/流程/坑）
+├─ new.cpp                   # 代码模板（pull-contest 用它生成新题）
+├─ tools/
+│  ├─ cp.ps1                 # 编译 / 跑样例 / 手写输入 / 对拍
+│  ├─ mkdata.ps1             # 造题数据生成与校验
+│  ├─ cph-folder-patch.ps1   # CPH 补丁：按比赛建目录 + 拉题抓题面
+│  ├─ cph-statement.js       # 单题题面 → md（CF/AtCoder/洛谷/牛客，AI/Bing 翻译）
+│  ├─ cph-statements.ps1     # 批量补/重抓题面
+│  ├─ pull-contest.js        # 整场抓取（AtCoder/洛谷/牛客）
+│  ├─ cf-plan.ps1            # 周题单（CF+AtCoder+洛谷弱项选题）
+│  ├─ cf-review.ps1          # 赛后复盘数据
+│  ├─ ai-client.js / _ai.js  # AI 翻译/复盘/提示/问答（OpenAI 兼容）
+│  ├─ install-vscode-extension.ps1
+│  └─ vscode-extension/      # 本地 VS Code 插件源码
+├─ training/                 # 训练产出（个人数据已被 .gitignore 忽略）+ 使用手册
+└─ templates/                # 造题模板（statement/gen/brute/checker）
+```
+
+## 配置与隐私
+
+- `training/ai-config.json`（API Key）、`training/cf-handle.txt`、`training/plan.*`、`training/redo.md` 等个人配置与数据都已在 `.gitignore` 中忽略，不会被提交
+- API Key 只保存在本机（文件或 VS Code 设置），请勿提交或分享
+- 题面/样例来自各平台公开页面，仅用于个人学习
+
+## 已知限制
+
+- 仅支持 Windows（脚本用 PowerShell 5.1 + `curl.exe`；含中文的 `.ps1` 必须 UTF-8 with BOM）
+- CPH Gym/私有题页面需要登录，抓不到题面；洛谷比赛未开始/未公开时拿不到题目列表；牛客比赛进行中或私有比赛需要登录
+- CPH 扩展升级后补丁会失效，需要重新运行 `cph-folder-patch.ps1 -Action apply`
+- CPH 自带的编译是 gnu++17 / 无 `-O2` / 1MB 栈 → 计时、验复杂度、大递归请用 `cp.ps1`
+
+## 开发
+
+- 修改插件源码后：`tools\install-vscode-extension.ps1` → Reload Window
+- 修改补丁脚本后：`cph-folder-patch.ps1 -Action revert` → `-Action apply`（补丁 selftest：`-Action selftest`）
+- 修改 `cph-statement.js` 后可用 `--html=page.html` 离线调试解析
+
+## License
+
+个人学习使用；第三方题目内容版权归各平台/出题人所有。

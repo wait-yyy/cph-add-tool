@@ -1,0 +1,39 @@
+# ---- personal solutions / pulled problems ----
+/codeforces/
+/atcoder/
+/luogu/
+/nowcoder/
+/problems/
+/*.cpp
+!new.cpp
+/*.exe
+/*.bin
+/*.out
+/*.log
+new1.cpp
+训练.cpp
+
+# ---- caches / build artifacts ----
+/.build/
+/.cph/
+**/.cph/
+*.bin
+*.exe
+*.o
+*.obj
+*.out
+
+# ---- local config / secrets / personal training data ----
+/training/ai-config.json
+/training/cf-handle.txt
+/training/plan.md
+/training/plan.json
+/training/redo.md
+/training/log.md
+
+# ---- editor / OS ----
+.DS_Store
+Thumbs.db
+.vscode/
+__pycache__/
+node_modules/

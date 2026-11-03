@@ -411,6 +411,33 @@ async function cmdPullContest() {
     }
 }
 
+async function cmdPullProblem() {
+    const url = await vscode.window.showInputBox({
+        prompt: '单个题目链接（Codeforces / AtCoder / 洛谷 / 牛客）',
+        placeHolder: 'https://codeforces.com/contest/2278/problem/A 或 https://atcoder.jp/contests/abc402/tasks/abc402_a 或 https://www.luogu.com.cn/problem/P1000 或 https://ac.nowcoder.com/acm/problem/21302',
+        validateInput: function (s) { return /^https?:\/\//i.test(String(s || '').trim()) ? null : '请输入 http(s) 链接'; }
+    });
+    if (!url) return;
+    const template = String(vscode.workspace.getConfiguration('cf-training-tools').get('pull.template') || 'new.cpp').trim();
+    const args = [url.trim(), '--single'];
+    if (template) args.push('--template=' + template);
+    const result = await runNode('pull-contest.js', args, '抓取题目中…', { cancellable: true });
+    if (result.cancelled) {
+        vscode.window.showInformationMessage('已取消抓取（已生成的文件保留）。');
+        return;
+    }
+    const stdout = String(result.stdout || '');
+    const hit = /SINGLE\s+([^|]+)\|([^|]+)\|(.+)/.exec(stdout);
+    if (result.code !== 0 || !hit) {
+        const first = (String(result.stderr || '') || stdout).trim().split(/\r?\n/)[0] || '看输出面板';
+        return vscode.window.showErrorMessage('抓取题目失败：' + first);
+    }
+    const base = hit[1].trim();
+    const cpp = hit[2].trim();
+    await layoutCppAndMd(cpp);
+    vscode.window.showInformationMessage('已拉取 ' + base + '，已打开 cpp + 题面 md');
+}
+
 async function cmdPullTemplate() {
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -743,6 +770,7 @@ async function cmdMenu() {
         { label: '$(plug) 测试 AI 连接', command: 'cfTraining.aiTest' },
         { label: '$(calendar) 生成/刷新周题单（CF+AtCoder+洛谷）', description: 'training/plan.md', command: 'cfTraining.plan' },
         { label: '$(cloud-download) 抓取整场比赛（Codeforces/洛谷/牛客/AtCoder）', description: '题面 + cpp + 样例缓存', command: 'cfTraining.pullContest' },
+        { label: '$(cloud-download) 抓取单个题目', description: '粘贴题目链接，自动建 md/cpp/缓存', command: 'cfTraining.pullProblem' },
         { label: '$(file) 设置拉题初始模板', description: '生成新 .cpp 用的模板文件', command: 'cfTraining.pullTemplate' },
         { label: '$(book) 打开完整周题单', command: 'cfTraining.openPlan' },
         { label: '$(checklist) 打开重做队列', command: 'cfTraining.openRedo' },
@@ -829,6 +857,7 @@ function sidebarHtml() {
             title: '训练',
             items: [
                 { cmd: 'cfTraining.pullContest', label: '📥 抓取整场比赛（CF/洛谷/牛客/AtCoder）', primary: true },
+                { cmd: 'cfTraining.pullProblem', label: '📥 抓取单个题目' },
                 { cmd: 'cfTraining.pullTemplate', label: '🧩 设置拉题初始模板' },
                 { cmd: 'cfTraining.plan', label: '📅 生成 / 刷新周题单', primary: true },
                 { cmd: 'cfTraining.reviewLatest', label: '🧾 复盘最近一场', primary: true },
@@ -995,6 +1024,7 @@ function activate(context) {
         'cfTraining.menu': cmdMenu,
         'cfTraining.plan': cmdPlan,
         'cfTraining.pullContest': cmdPullContest,
+        'cfTraining.pullProblem': cmdPullProblem,
         'cfTraining.pullTemplate': cmdPullTemplate,
         'cfTraining.openPlan': cmdOpenPlan,
         'cfTraining.openRedo': cmdOpenRedo,

@@ -99,12 +99,15 @@ node tools\pull-contest.js https://codeforces.com/contest/2278
 node tools\pull-contest.js https://atcoder.jp/contests/abc402
 node tools\pull-contest.js https://www.luogu.com.cn/contest/251050
 node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
+
+# 单个题目
+node tools\pull-contest.js https://codeforces.com/contest/2278/problem/A --single
 ```
 
 - 每道题生成 `题面.md` + 从**初始模板**复制的 `.cpp` + 结构化题面数据 `.json` + CPH `.cph` 样例缓存（`cp.ps1 samples`、CPH 按钮都能跑样例）；整场还会生成 `contest.json`
 - 抓取时进度条可点**取消**；抓取完可「选择题目打开」，自动分屏题面 md（打开有同名 md 的 cpp 也会自动分屏，可用设置 cf-training-tools.autoStatementPreview=false 关闭）\n- 默认跳过已有 md；`--force` 覆盖，`--only=A,B` 只抓部分，`--out=<dir>` 指定输出目录，`--no-cpp` 只抓题面
 - **初始模板**：默认 `new.cpp`；`--template=<文件>` / 插件设置 `cf-training-tools.pull.template` / `training/pull-config.json` 三选一（见项目 README）
-- 插件面板「📥 抓取整场比赛」同款；洛谷比赛题会自动带 `?contestId=`，牛客自动探测 A..Z 题号
+- 插件面板「📥 抓取整场比赛」/「📥 抓取单个题目」同款；洛谷比赛题会自动带 `?contestId=`，牛客自动探测 A..Z 题号
 - **Codeforces**：正赛用 CF API 枚举；题面页被 Cloudflare 403 时自动改用洛谷镜像 `CF<id><index>` 抓取。**Gym/私有比赛需要登录，不支持整场抓取**。
 
 ## 本目录约定

@@ -2,7 +2,7 @@
     "name": "cf-training-tools",
     "displayName": "CF Training Tools",
     "description": "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version": "0.6.4",
+    "version": "0.6.5",
     "publisher": "waityyy",
     "repository": {
         "type": "git",
@@ -55,6 +55,10 @@
                 "category": "CF 训练"
             },
             {
+                "command": "cfTraining.pullProblem",
+                "title": "抓取单个题目",
+                "category": "CF 训练"
+            },            {
                 "command": "cfTraining.pullTemplate",
                 "title": "设置拉题初始模板",
                 "category": "CF 训练"

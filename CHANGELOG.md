@@ -1,5 +1,13 @@
 # 更新日志
 
+## 0.6.5
+
+- 新增 **抓取单个题目**：面板「📥 抓取单个题目」/ 命令 `cfTraining.pullProblem`
+  - 支持 Codeforces / AtCoder / 洛谷 / 牛客单题链接
+  - 自动生成题面 md、按模板生成 cpp、`.cph` 样例缓存、结构化 json
+  - 拉完自动打开 cpp + 题面 md 两栏
+- `pull-contest.js` 新增 `--single`（整场链接会明确报错，避免误拉整场）
+
 ## 0.6.4
 
 - 打开题目时**强制两栏布局**：左侧 `.cpp`、右侧题面 `.md` 预览（`editorLayoutTwoColumns` + `markdown.showPreviewToSide`，焦点回到 cpp）

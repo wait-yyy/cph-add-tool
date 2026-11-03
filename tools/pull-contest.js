@@ -10,7 +10,7 @@
  *
  * Usage:
  *   node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force]
- *                              [--template=<cpp>] [--no-cpp] [--no-translate] [--no-ai]
+ *                              [--template=<cpp>] [--single] [--no-cpp] [--no-translate] [--no-ai]
  *
  * Examples:
  *   node tools/pull-contest.js https://atcoder.jp/contests/abc402
@@ -37,7 +37,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const IS_WIN = process.platform === 'win32';
 
 function usage() {
-    console.log('usage: node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force] [--template=<cpp>] [--no-cpp] [--no-translate] [--no-ai]');
+    console.log('usage: node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force] [--template=<cpp>] [--single] [--no-cpp] [--no-translate] [--no-ai]');
     console.log('  Codeforces: https://codeforces.com/contest/2278');
     console.log('  AtCoder : https://atcoder.jp/contests/abc402');
     console.log('  洛谷    : https://www.luogu.com.cn/contest/251050');
@@ -53,6 +53,7 @@ function parseArgs(argv) {
         else if (a.indexOf('--only=') === 0) flags.only = a.slice(7).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
         else if (a.indexOf('--template=') === 0) flags.template = a.slice(11);
         else if (a === '--force') flags.force = true;
+        else if (a === '--single') flags.single = true;
         else if (a === '--no-cpp') flags.noCpp = true;
         else if (a === '--no-translate') flags.noTranslate = true;
         else if (a === '--no-ai') flags.noAi = true;
@@ -118,31 +119,31 @@ function detect(url) {
     let m;
     if (/(^|\.)codeforces\.com$/.test(host)) {
         m = /\/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/.exec(p);
-        if (m) return { platform: 'codeforces', contestId: m[1], singleIndex: m[2], isGym: false };
+        if (m) return { platform: 'codeforces', contestId: m[1], singleIndex: m[2], isGym: false, isSingle: true };
         m = /\/contest\/(\d+)/.exec(p) || /\/gym\/(\d+)/.exec(p);
         if (!m) return null;
         const isGym = /\/gym\//.test(p);
         const tm = /\/problem\/([A-Za-z0-9]+)/.exec(p);
-        return { platform: 'codeforces', contestId: m[1], isGym: isGym, singleIndex: tm ? tm[1] : '' };
+        return { platform: 'codeforces', contestId: m[1], isGym: isGym, singleIndex: tm ? tm[1] : '', isSingle: !!tm };
     }
     if (/(^|\.)atcoder\.jp$/.test(host)) {
         m = /\/contests\/([^/?#]+)/.exec(p);
         if (!m) return null;
         const tm = /\/tasks\/([^/?#]+)/.exec(p);
-        return { platform: 'atcoder', contest: m[1], singleTask: tm ? tm[1] : '' };
+        return { platform: 'atcoder', contest: m[1], singleTask: tm ? tm[1] : '', isSingle: !!tm };
     }
     if (/(^|\.)luogu\.com(\.cn)?$/.test(host)) {
         m = /\/contest\/(\d+)/.exec(p);
         if (m) return { platform: 'luogu', contestId: m[1] };
         m = /\/problem\/([A-Za-z0-9_]+)/.exec(p);
-        if (m) return { platform: 'luogu', singlePid: m[1] };
+        if (m) return { platform: 'luogu', singlePid: m[1], isSingle: true };
         return null;
     }
     if (/(^|\.)nowcoder\.com$/.test(host)) {
         m = /\/acm\/contest\/(\d+)/.exec(p);
         if (m) return { platform: 'nowcoder', contestId: m[1] };
         m = /\/acm\/problem\/(\d+)/.exec(p);
-        if (m) return { platform: 'nowcoder', singleProblem: m[1] };
+        if (m) return { platform: 'nowcoder', singleProblem: m[1], isSingle: true };
         return null;
     }
     return null;
@@ -372,6 +373,10 @@ function main() {
         console.error('无法识别比赛链接（支持 Codeforces / AtCoder / 洛谷 / 牛客）: ' + url);
         return 2;
     }
+    if (parsed.flags.single && !info.isSingle) {
+        console.error('这是整场比赛链接；抓取单个题目请用题目链接，或改用「抓取整场比赛」。');
+        return 2;
+    }
 
     let meta;
     try {
@@ -476,30 +481,37 @@ function main() {
         created++;
     });
 
-    try {
-        const summary = {
-            platform: info.platform,
-            source: url,
-            name: meta.group || '',
-            folder: outDir,
-            template: parsed.flags.noCpp ? '' : template,
-            generatedAt: new Date().toISOString(),
-            problemCount: meta.problems.length,
-            problems: meta.problems.map(function (p) {
-                return {
-                    base: p.base,
-                    name: p.name || '',
-                    url: p.url,
-                    md: p.base + '.md',
-                    cpp: parsed.flags.noCpp ? '' : (p.base + '.cpp'),
-                    data: p.base + '.json'
-                };
-            })
-        };
-        fs.writeFileSync(path.join(outDir, 'contest.json'), JSON.stringify(summary, null, 2) + '\n', 'utf8');
-        console.log('CONTEST JSON ' + path.join(outDir, 'contest.json'));
-    } catch (e) {
-        console.error('WARN contest json failed: ' + e.message);
+    if (parsed.flags.single) {
+        const p = meta.problems[0];
+        const singleCpp = path.join(outDir, p.base + '.cpp');
+        const singleMd = path.join(outDir, p.base + '.md');
+        console.log('SINGLE ' + p.base + '|' + singleCpp + '|' + singleMd);
+    } else {
+        try {
+            const summary = {
+                platform: info.platform,
+                source: url,
+                name: meta.group || '',
+                folder: outDir,
+                template: parsed.flags.noCpp ? '' : template,
+                generatedAt: new Date().toISOString(),
+                problemCount: meta.problems.length,
+                problems: meta.problems.map(function (p) {
+                    return {
+                        base: p.base,
+                        name: p.name || '',
+                        url: p.url,
+                        md: p.base + '.md',
+                        cpp: parsed.flags.noCpp ? '' : (p.base + '.cpp'),
+                        data: p.base + '.json'
+                    };
+                })
+            };
+            fs.writeFileSync(path.join(outDir, 'contest.json'), JSON.stringify(summary, null, 2) + '\n', 'utf8');
+            console.log('CONTEST JSON ' + path.join(outDir, 'contest.json'));
+        } catch (e) {
+            console.error('WARN contest json failed: ' + e.message);
+        }
     }
 
     console.log('DONE created=' + created + ' skipped=' + skipped + ' failed=' + failed);

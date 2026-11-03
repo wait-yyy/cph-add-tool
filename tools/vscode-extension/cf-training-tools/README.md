@@ -56,6 +56,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 抓取过程中进度通知上有**取消按钮**（可随时中断）；抓取完成后可点「选择题目打开」→ 选一道题，会打开 cpp 并把题面 md **分屏**到侧边。
 
+单个题目用面板「📥 抓取单个题目」或命令行 `--single`，会生成 md/cpp/.cph 并直接打开两栏。
+
 会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（按**初始模板**生成）、`<题号>.json` 结构化题面数据、`.cph` 样例缓存（CPH 按钮和 `cp.ps1 samples` 都能直接跑样例）；整场还会生成 `contest.json`。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
 
 初始模板默认是仓库根目录的 `new.cpp`，可以这样改：

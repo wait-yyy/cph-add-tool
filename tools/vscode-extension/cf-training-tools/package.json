@@ -2,7 +2,7 @@
     "name": "cf-training-tools",
     "displayName": "CF Training Tools",
     "description": "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version": "0.6.5",
+    "version": "0.6.6",
     "publisher": "waityyy",
     "repository": {
         "type": "git",
@@ -57,6 +57,20 @@
             {
                 "command": "cfTraining.pullProblem",
                 "title": "抓取单个题目",
+                "category": "CF 训练"
+            },            {
+                "command": "cfTraining.cfLogin",
+                "title": "设置 CF 登录 Cookie（Gym/私有比赛）",
+                "category": "CF 训练"
+            },
+            {
+                "command": "cfTraining.cfLoginCheck",
+                "title": "检查 CF 登录状态",
+                "category": "CF 训练"
+            },
+            {
+                "command": "cfTraining.cfLogout",
+                "title": "清除 CF 登录 Cookie",
                 "category": "CF 训练"
             },            {
                 "command": "cfTraining.pullTemplate",

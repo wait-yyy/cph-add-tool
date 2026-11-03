@@ -18,7 +18,7 @@
 | 栈 | Windows 默认 1MB，深递归（约 1e5+ 层）会爆栈 → 必须 `-Wl,--stack=268435456` |
 | 消毒器 | **没有 ASan/UBSan**（`-fsanitize=address,undefined` 链接失败，缺 `libasan/libubsan`）。替代：`-g -D_GLIBCXX_DEBUG` |
 | 其他工具 | 没有 clang / clang-format / valgrind；`Invoke-WebRequest`、`git clone` 和外网 API 大多不通（CF 还有 Cloudflare 反爬） |
-| 网络 | agent 工具的 `web_fetch` / `web_search` 可上网；**脚本里只有 `curl.exe` 带浏览器 UA 能过 CF 的 Cloudflare**（PowerShell `Invoke-WebRequest`、Node 原生 https 默认会被 403）→ 题面抓取用 `tools\cph-statement.js` 的 curl 路径；Bing 翻译走 `cn.bing.com`；AI 走 OpenAI 兼容 API（实测 DeepSeek / SiliconFlow 可达，OpenAI 官方被墙），配置在 `training\ai-config.json`；**AtCoder / 洛谷 / 牛客题面也能匿名抓**（洛谷比赛题必须带 `?contestId=<比赛id>`，pull-contest 会自动加）。CF 题面页被 Cloudflare 403 时，`cph-statement.js` 会自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>`（Gym/私有题无镜像） |
+| 网络 | agent 工具的 `web_fetch` / `web_search` 可上网；**脚本里只有 `curl.exe` 带浏览器 UA 能过 CF 的 Cloudflare**（PowerShell `Invoke-WebRequest`、Node 原生 https 默认会被 403）→ 题面抓取用 `tools\cph-statement.js` 的 curl 路径；Bing 翻译走 `cn.bing.com`；AI 走 OpenAI 兼容 API（实测 DeepSeek / SiliconFlow 可达，OpenAI 官方被墙），配置在 `training\ai-config.json`；**AtCoder / 洛谷 / 牛客题面也能匿名抓**（洛谷比赛题必须带 `?contestId=<比赛id>`，pull-contest 会自动加）。CF 题面页被 Cloudflare 403 时，`cph-statement.js` 会自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>`（Gym/私有题无镜像；Gym/私有比赛可在面板「设置 CF 登录 Cookie」保存浏览器 Cookie，脚本会自动带上） |
 | 进程控制 | 沙箱下 `Start-Process` 读不到子进程 ExitCode，`taskkill`/`Wait-Process` 会被拒绝；只有自己 `CreateProcess` 的句柄才能 Kill → 跑程序一律走 `tools\_runner.cpp` |
 
 ## 2. 目录约定
@@ -37,6 +37,7 @@
                         _cf_api.ps1 / cf-plan.ps1 / cf-review.ps1（Codeforces 训练：周题单、赛后复盘）、
                         _ai.js / ai-client.js（AI：题面翻译、复盘总结、分级提示、问答；OpenAI 兼容）、
                         pull-contest.js（整场抓取：Codeforces / AtCoder / 洛谷 / 牛客 → 题面 md + cpp + CPH 样例缓存）、
+                        _cf_auth.js / cf-login-check.js（Codeforces 登录 Cookie：Gym/私有比赛）、
                         install-vscode-extension.ps1 + vscode-extension/（本地 VS Code 插件源码）、
                         _runner.cpp（原生运行器，首次运行自动编译成 .build\_runner.exe）
   templates/            造题模板：gen.cpp / brute.cpp / checker.cpp / statement.md
@@ -104,7 +105,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress -Solutio
 - `-D DEBUG`、`-D CPH` 在 CPH 编译时一定存在；`cp.ps1` 为了对齐也加了这两个宏。
 - CPH 的样例缓存与源文件同级：`.cph/.<完整文件名>_<md5(源文件完整路径)>.prob`（JSON，字段见 §2）。**挪动/改名源文件后 hash 变化，缓存失联**。
 - 本机 CPH 已打过“按比赛建目录”补丁（`tools\cph-folder-patch.ps1`）：拉题时源文件写到 `codeforces/<比赛>/<题号>.cpp`，`.cph/` 和 `.bin` 跟着进同目录。扩展升级/重装会用新文件覆盖 `dist\extension.js` → 补丁失效，重跑 `-Action apply` 即可（`-Action status` 查看、`-Action revert` 回滚；备份在扩展目录 `dist\extension.js.cph-folder-orig`）。改完需重载 VS Code 窗口才生效。
-- 题面 md 是拉题时自动生成的**中英对照**版本：补丁 spawn `node tools\cph-statement.js` 抓原题页面→Markdown，再翻译成中文（**配置了 `training\ai-config.json` 时优先用 AI 翻译，否则/失败时退回 Bing**；每段英文后跟一行中文；样例代码块、公式 `$...$` 保持原样），写盘后扩展自动 `markdown.showPreviewToSide` 打开预览。**自动预览只对当前正在编辑的那道题生效**（整场拉题不会弹一堆；30 秒内同一份 md 不重复开），可用 VS Code 设置 `cf-training-tools.autoPreview=false` 关闭。**支持 CF 正赛、AtCoder、洛谷、牛客**；Gym/私有题要登录，抓不到、不生成 md。翻译失败会退回纯英文，失败原因看 `.build\cph-statement.log`。批量补/重抓：`powershell -NoProfile -ExecutionPolicy Bypass -File tools\cph-statements.ps1 [-Solution <cpp>] [-Force]`；手动抓单题可加 `--no-translate` 只出英文、`--no-ai` 强制走 Bing。**整场抓取**用 `node tools\pull-contest.js <比赛链接>`（Codeforces/AtCoder/洛谷/牛客；CF 正赛 API 枚举、题面 403 时用洛谷镜像 `CF<id><index>`；洛谷比赛题自动带 `?contestId=`，牛客按 A..Z 自动探测题号），会同时建 cpp 和 `.cph` 样例缓存。Gym/私有比赛需登录，抓不到。
+- 题面 md 是拉题时自动生成的**中英对照**版本：补丁 spawn `node tools\cph-statement.js` 抓原题页面→Markdown，再翻译成中文（**配置了 `training\ai-config.json` 时优先用 AI 翻译，否则/失败时退回 Bing**；每段英文后跟一行中文；样例代码块、公式 `$...$` 保持原样），写盘后扩展自动 `markdown.showPreviewToSide` 打开预览。**自动预览只对当前正在编辑的那道题生效**（整场拉题不会弹一堆；30 秒内同一份 md 不重复开），可用 VS Code 设置 `cf-training-tools.autoPreview=false` 关闭。**支持 CF 正赛、AtCoder、洛谷、牛客**；Gym/私有题需登录（可设置 CF 登录 Cookie）。翻译失败会退回纯英文，失败原因看 `.build\cph-statement.log`。批量补/重抓：`powershell -NoProfile -ExecutionPolicy Bypass -File tools\cph-statements.ps1 [-Solution <cpp>] [-Force]`；手动抓单题可加 `--no-translate` 只出英文、`--no-ai` 强制走 Bing。**整场抓取**用 `node tools\pull-contest.js <比赛链接>`（Codeforces/AtCoder/洛谷/牛客；CF 正赛 API 枚举、题面 403 时用洛谷镜像 `CF<id><index>`；洛谷比赛题自动带 `?contestId=`，牛客按 A..Z 自动探测题号），会同时建 cpp 和 `.cph` 样例缓存。Gym/私有比赛需登录（设置 Cookie 后可抓）。
 
 ## 5. 造题流程（出题/验题）
 
@@ -188,7 +189,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress -Solutio
   - `tools\cf-plan.ps1 [-Count 5] [-Refresh] [-Sources cf,atcoder,luogu]` → 生成 `training\plan.md`（弱项 tag + Codeforces/AtCoder/洛谷三平台题目）、`training\plan.json`（VS Code 面板用）、`training\redo.md`（AC 但错 >=3 次的重做队列）。AtCoder 数据来自 kenkoooo 公开题库，洛谷从题库列表页抓（脚本自动取 C3VK cookie）
   - `tools\cf-review.ps1 [-ContestId N] [-Refresh]` → 生成 `codeforces\<比赛目录>\review.md`，API 数据自动填，`<!-- AGENT -->` 占位符由 agent 在用户说「复盘」时补分析
   - 私有 gym / 隐藏比赛 API 查不到（`contestId not found`），这种只能基于本地 `.cpp` / `.cph` 手动复盘
-  - `tools\pull-contest.js <比赛链接>` → 整场抓取（Codeforces / AtCoder / 洛谷 / 牛客）：题面 md + 按**初始模板**建 cpp + 结构化数据 `<题号>.json` + 整场 `contest.json` + CPH `.cph` 样例缓存；`--only=A,B` 只抓部分、`--out=<dir>` 指定目录、`--force` 覆盖已存在 md、`--no-cpp` 只抓题面、`--single` 抓单个题目（输出 `SINGLE base|cpp|md`）。CF 正赛支持（API 枚举 + 洛谷镜像兜底），Gym/私有比赛需登录不支持。初始模板默认 `new.cpp`，可设 `--template=<文件>` / 插件设置 `cf-training-tools.pull.template` / `training\pull-config.json`。插件面板「📥 抓取整场比赛」「🧩 设置拉题初始模板」同款。项目 QQ 群：188241279。
+  - `tools\pull-contest.js <比赛链接>` → 整场抓取（Codeforces / AtCoder / 洛谷 / 牛客）：题面 md + 按**初始模板**建 cpp + 结构化数据 `<题号>.json` + 整场 `contest.json` + CPH `.cph` 样例缓存；`--only=A,B` 只抓部分、`--out=<dir>` 指定目录、`--force` 覆盖已存在 md、`--no-cpp` 只抓题面、`--single` 抓单个题目（输出 `SINGLE base|cpp|md`）。CF 正赛支持（API 枚举 + 洛谷镜像兜底），Gym/私有比赛需先设置 CF 登录 Cookie。初始模板默认 `new.cpp`，可设 `--template=<文件>` / 插件设置 `cf-training-tools.pull.template` / `training\pull-config.json`。插件面板「📥 抓取整场比赛」「🧩 设置拉题初始模板」同款。项目 QQ 群：188241279。
 - 本机已装本地插件 `local.cf-training-tools`（活动栏「CF 训练」面板：当前题单/AI 按钮 + 状态栏菜单）：把周题单/复盘/题面/编译样例/CPH 补丁/AI 操作包成 VS Code 按钮。源码在 `tools\vscode-extension\cf-training-tools`，改完跑 `tools\install-vscode-extension.ps1` 再重载窗口生效；`-Uninstall` 卸载。
 - AI 助手（可选，配置 `training\ai-config.json`，OpenAI 兼容：DeepSeek / SiliconFlow / 任意网关；key 只存本地，不要写进 md 或回答里）：
   - `tools\ai-client.js ping|translate|review|hint|ask`：连通性测试 / 整篇翻译 / 赛后复盘分析 / 分级提示 / 问答

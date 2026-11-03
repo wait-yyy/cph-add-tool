@@ -266,6 +266,10 @@ function siblingMarkdown(cppFsPath) {
     return cppFsPath.replace(/\.(cpp|cc|cxx)$/i, '.md');
 }
 
+function cfCookiePath() {
+    return path.join(workspaceRoot(), 'training', 'cf-cookies.txt');
+}
+
 // Snapshot the active editor buffer (so unsaved edits are included) into .build
 // and return that temp path for the AI call.
 function snapshotActiveCode(cppPath) {
@@ -436,6 +440,56 @@ async function cmdPullProblem() {
     const cpp = hit[2].trim();
     await layoutCppAndMd(cpp);
     vscode.window.showInformationMessage('已拉取 ' + base + '，已打开 cpp + 题面 md');
+}
+
+async function cmdCfLogin() {
+    const action = await vscode.window.showInformationMessage(
+        'Gym/私有比赛需要 Codeforces 登录 Cookie：先在浏览器登录，再复制 Cookie 请求头。',
+        '打开登录页', '粘贴 Cookie'
+    );
+    if (action === '打开登录页') {
+        try { await vscode.env.openExternal(vscode.Uri.parse('https://codeforces.com/enter')); } catch (e) { /* ignore */ }
+        return;
+    }
+    if (action !== '粘贴 Cookie') return;
+    const cookie = await vscode.window.showInputBox({
+        prompt: '粘贴 codeforces.com 的 Cookie 请求头（F12 → Network → 任意请求 → Request Headers → Cookie，整行复制）',
+        password: true,
+        ignoreFocusOut: true,
+        validateInput: function (s) { return String(s || '').trim() ? null : '不能为空'; }
+    });
+    if (!cookie) return;
+    try {
+        const file = cfCookiePath();
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, String(cookie).trim() + '\n', 'utf8');
+    } catch (e) {
+        return vscode.window.showErrorMessage('保存 Codeforces Cookie 失败：' + e.message);
+    }
+    const result = await runNode('cf-login-check.js', [], '检查 Codeforces 登录…');
+    const out = String(result.stdout || '').trim();
+    if (result.code === 0 && /OK handle=/.test(out)) {
+        vscode.window.showInformationMessage('Codeforces 登录成功：' + out.split(/\r?\n/)[0].replace(/^OK handle=/, ''));
+    } else {
+        const first = (String(result.stderr || result.stdout || '').trim().split(/\r?\n/)[0]) || '看输出面板';
+        vscode.window.showWarningMessage('Cookie 已保存，但验证失败：' + first);
+    }
+}
+
+async function cmdCfLoginCheck() {
+    const result = await runNode('cf-login-check.js', [], '检查 Codeforces 登录…');
+    const out = String(result.stdout || '').trim();
+    if (result.code === 0) {
+        vscode.window.showInformationMessage('Codeforces 已登录：' + out.replace(/^OK handle=/, ''));
+    } else {
+        const first = (String(result.stderr || '').trim().split(/\r?\n/)[0]) || '未登录';
+        vscode.window.showWarningMessage(first + '（面板「设置 CF 登录 Cookie」）');
+    }
+}
+
+async function cmdCfLogout() {
+    try { fs.unlinkSync(cfCookiePath()); } catch (e) { /* ignore */ }
+    vscode.window.showInformationMessage('已清除 Codeforces 登录 Cookie');
 }
 
 async function cmdPullTemplate() {
@@ -781,6 +835,9 @@ async function cmdMenu() {
         { label: '$(run-all) 编译并跑样例', command: 'cfTraining.samples' },
         { label: '$(tools) 只编译', command: 'cfTraining.build' },
         { label: '$(files) 重新生成全部题面 md', command: 'cfTraining.regenerateAll' },
+        { label: '$(account) 设置 CF 登录 Cookie（Gym/私有比赛）', command: 'cfTraining.cfLogin' },
+        { label: '$(search) 检查 CF 登录状态', command: 'cfTraining.cfLoginCheck' },
+        { label: '$(trash) 清除 CF 登录 Cookie', command: 'cfTraining.cfLogout' },
         { label: '$(person) 设置 CF handle', command: 'cfTraining.setHandle' },
         { label: '$(check) 查看 CPH 补丁状态', command: 'cfTraining.patchStatus' },
         { label: '$(sync) 重新打 CPH 补丁', command: 'cfTraining.patchApply' },
@@ -882,6 +939,9 @@ function sidebarHtml() {
         {
             title: '设置 / 维护',
             items: [
+                { cmd: 'cfTraining.cfLogin', label: '🍪 设置 CF 登录 Cookie（Gym/私有比赛）' },
+                { cmd: 'cfTraining.cfLoginCheck', label: '🔎 检查 CF 登录状态' },
+                { cmd: 'cfTraining.cfLogout', label: '🚪 清除 CF 登录 Cookie' },
                 { cmd: 'cfTraining.setHandle', label: '👤 设置 CF handle' },
                 { cmd: 'cfTraining.patchStatus', label: '✅ 查看 CPH 补丁状态' },
                 { cmd: 'cfTraining.patchApply', label: '🧩 重新打 CPH 补丁' },
@@ -1025,6 +1085,9 @@ function activate(context) {
         'cfTraining.plan': cmdPlan,
         'cfTraining.pullContest': cmdPullContest,
         'cfTraining.pullProblem': cmdPullProblem,
+        'cfTraining.cfLogin': cmdCfLogin,
+        'cfTraining.cfLoginCheck': cmdCfLoginCheck,
+        'cfTraining.cfLogout': cmdCfLogout,
         'cfTraining.pullTemplate': cmdPullTemplate,
         'cfTraining.openPlan': cmdOpenPlan,
         'cfTraining.openRedo': cmdOpenRedo,

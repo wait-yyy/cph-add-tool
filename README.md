@@ -41,6 +41,17 @@ CPH（Competitive Companion）仍然可用，只是不再是主流程：需要"�
 3. `training/pull-config.json`（复制 `training/pull-config.example.json`）：`{ "template": "new.cpp" }`
 4. 默认 `new.cpp`
 
+## Codeforces Gym / 私有比赛（登录）
+
+Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器登录态（Cookie），不用把账号密码交给脚本。
+
+1. 浏览器登录 `codeforces.com`，并**报名**要做的 Gym/私有比赛
+2. 面板「设置 / 维护」→ **🍪 设置 CF 登录 Cookie**（或命令面板搜 `CF 训练: 设置 CF 登录 Cookie`）
+3. F12 → Network → 随便点一个 `codeforces.com` 请求 → Request Headers → 复制 **Cookie** 整行（要包含 `JSESSIONID`、`cf_clearance` 等全部字段）
+4. 粘贴后会自动验证，成功后显示你的 handle；之后抓取整场/单题 Gym 会自动带上登录态
+5. Cookie 过期后重新设置；面板「🚪 清除 CF 登录 Cookie」可退出
+
+> Cookie 等同于登录态，**不要分享/提交**。它只保存在本机 `training/cf-cookies.txt`（已在 `.gitignore` 中）。
 ## 功能
 
 - **CPH 拉题增强**（Competitive Programming Helper 扩展补丁）

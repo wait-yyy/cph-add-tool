@@ -110,6 +110,9 @@ node tools\pull-contest.js https://codeforces.com/contest/2278/problem/A --singl
 - 插件面板「📥 抓取整场比赛」/「📥 抓取单个题目」同款；洛谷比赛题会自动带 `?contestId=`，牛客自动探测 A..Z 题号
 - **Codeforces**：正赛用 CF API 枚举；题面页被 Cloudflare 403 时自动改用洛谷镜像 `CF<id><index>` 抓取。**Gym/私有比赛需要登录，不支持整场抓取**。
 
+## Codeforces Gym / 私有比赛
+
+Gym 需要登录：浏览器登录并报名后，面板「设置 / 维护」→「🍪 设置 CF 登录 Cookie」，粘贴 `codeforces.com` 请求的 Cookie 整行（含 JSESSIONID / cf_clearance）。验证成功后会显示 handle，之后整场/单题 Gym 抓取自动带登录态。Cookie 只存本地 `training/cf-cookies.txt`（gitignore），过期重新设置即可。
 ## 本目录约定
 
 ```

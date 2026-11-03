@@ -42,6 +42,7 @@ const path = require('path');
 const { URL } = require('url');
 const { execFileSync } = require('child_process');
 const aiHelper = require('./_ai.js');
+const cfAuth = require('./_cf_auth.js');
 
 const WORKSPACE_ROOT = path.resolve(__dirname, '..');
 const LOG_FILE = path.join(WORKSPACE_ROOT, '.build', 'cph-statement.log');
@@ -71,13 +72,16 @@ function fetchText(url, redirectsLeft) {
             return reject(new Error('unsupported protocol: ' + u.protocol));
         }
         const mod = u.protocol === 'http:' ? http : https;
+        const headers = {
+            'User-Agent': UA,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'identity'
+        };
+        const cookie = cfAuth.readCookie();
+        if (cookie && cfAuth.isCfUrl(url)) headers['Cookie'] = cookie;
         const req = mod.get(u, {
-            headers: {
-                'User-Agent': UA,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'identity'
-            },
+            headers: headers,
             timeout: TIMEOUT_MS
         }, function (res) {
             const code = res.statusCode || 0;
@@ -106,9 +110,11 @@ function curlFetch(url) {
         '-sSL', '-f', '--max-time', '25', '--compressed',
         '-A', UA,
         '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        '-H', 'Accept-Language: en-US,en;q=0.9',
-        url
+        '-H', 'Accept-Language: en-US,en;q=0.9'
     ];
+    const cookie = cfAuth.readCookie();
+    if (cookie && cfAuth.isCfUrl(url)) args.push('-H', 'Cookie: ' + cookie);
+    args.push(url);
     const out = execFileSync('curl.exe', args, { maxBuffer: 30 * 1024 * 1024, timeout: 30000, windowsHide: true });
     const text = out.toString('utf8');
     if (!text || text.length < 200) throw new Error('empty curl response');
@@ -1149,8 +1155,14 @@ async function main() {
                     return 1;
                 }
             } else {
-                console.error('fetch failed: ' + e.message + ' ' + finalUrl);
-                appendLog('fetch failed ' + finalUrl + ' :: ' + e.message);
+                let hint = '';
+                if (isCf && /\/gym\//.test(String(url))) {
+                    hint = cfAuth.readCookie()
+                        ? '（Gym/私有比赛：Cookie 可能已过期，请重新设置）'
+                        : '（Gym/私有比赛需要先在面板「设置 CF 登录 Cookie」）';
+                }
+                console.error('fetch failed: ' + e.message + ' ' + finalUrl + hint);
+                appendLog('fetch failed ' + finalUrl + ' :: ' + e.message + hint);
                 return 1;
             }
         }

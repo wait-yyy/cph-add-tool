@@ -67,6 +67,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 > Codeforces 题面页有 Cloudflare 防护，`cph-statement.js` 会在 403 时自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面；Gym/私有比赛仍需要登录。
 
+## Codeforces Gym / 私有比赛（登录）
+
+Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / 维护」→「🍪 设置 CF 登录 Cookie」，粘贴浏览器里 `codeforces.com` 请求的 **Cookie** 整行即可（会自动验证并显示 handle）。Cookie 只存本机 `training/cf-cookies.txt`，已 gitignore；过期后重新设置，或用「🚪 清除 CF 登录 Cookie」退出。
 ## AI 助手（OpenAI 兼容 API）
 
 **三个地方都能设置，任选一个：**

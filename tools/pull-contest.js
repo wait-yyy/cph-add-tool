@@ -30,6 +30,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync, spawnSync } = require('child_process');
+const cfAuth = require('./_cf_auth.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const STATEMENT = path.join(__dirname, 'cph-statement.js');
@@ -69,6 +70,8 @@ function curlGet(url, opts) {
         '-H', 'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8'];
     if (opts.jar) args.push('-c', opts.jar, '-b', opts.jar);
     if (opts.referer) args.push('-H', 'Referer: ' + opts.referer);
+    const cookie = cfAuth.readCookie();
+    if (cookie && cfAuth.isCfUrl(url)) args.push('-H', 'Cookie: ' + cookie);
     if (!opts.allowError) args.push('-f');
     args.push(url);
     const out = execFileSync(IS_WIN ? 'curl.exe' : 'curl', args, {
@@ -286,8 +289,49 @@ function codeforcesFolder(contestName, contestId, isGym) {
     return 'codeforces/contest' + contestId;
 }
 
+function enumerateGymFromPage(id) {
+    const html = curlGet('https://codeforces.com/gym/' + id, { timeout: 40 });
+    const titleM = /<title>([\s\S]*?)<\/title>/i.exec(html);
+    const title = titleM ? cleanInline(titleM[1]) : ('Gym ' + id);
+    const re = new RegExp('/gym/' + id + '/problem/([A-Za-z0-9]+)', 'g');
+    const idxs = [];
+    let m;
+    while ((m = re.exec(html)) !== null) {
+        if (idxs.indexOf(m[1]) < 0) idxs.push(m[1]);
+    }
+    if (!idxs.length) {
+        throw new Error('页面里没有解析到题目列表（Cookie 可能无效/未报名该 gym）');
+    }
+    return {
+        group: 'Codeforces - ' + title,
+        folder: 'codeforces/gym' + id,
+        problems: idxs.map(function (idx) {
+            return {
+                base: id + idx,
+                url: 'https://codeforces.com/gym/' + id + '/problem/' + idx,
+                name: idx,
+                index: idx
+            };
+        })
+    };
+}
+
 function enumerateCodeforces(info, flags) {
     const id = String(info.contestId);
+    // Single Gym problem: no API needed; statement fetch will use the saved Cookie.
+    if (info.isGym && info.singleIndex) {
+        const idx = String(info.singleIndex);
+        return {
+            group: 'Codeforces - Gym ' + id,
+            folder: 'codeforces/gym' + id,
+            problems: [{
+                base: id + idx,
+                url: 'https://codeforces.com/gym/' + id + '/problem/' + idx,
+                name: idx,
+                index: idx
+            }]
+        };
+    }
     // Anonymous requests must not add from/count (CF rejects them with 400),
     // so this returns the full standings payload (a few MB, cached by curl).
     const api = 'https://codeforces.com/api/contest.standings?contestId=' + id;
@@ -300,7 +344,12 @@ function enumerateCodeforces(info, flags) {
     if (!data || data.status !== 'OK' || !data.result) {
         const msg = (data && data.comment) || 'unknown';
         if (info.isGym) {
-            throw new Error('CF Gym/私有比赛 API 不可用（需要登录）：' + msg + '。请改用 CPH 拉题，或确认 gym 编号/权限。');
+            try {
+                return enumerateGymFromPage(id);
+            } catch (e2) {
+                throw new Error('CF Gym/私有比赛无法访问：' + msg + ' / ' + e2.message +
+                    '。请先在面板「设置 CF 登录 Cookie」，并确认已报名该 gym。');
+            }
         }
         throw new Error('Codeforces API 返回错误：' + msg);
     }
@@ -485,7 +534,9 @@ function main() {
         const p = meta.problems[0];
         const singleCpp = path.join(outDir, p.base + '.cpp');
         const singleMd = path.join(outDir, p.base + '.md');
-        console.log('SINGLE ' + p.base + '|' + singleCpp + '|' + singleMd);
+        if (created > 0 && fs.existsSync(singleMd)) {
+            console.log('SINGLE ' + p.base + '|' + singleCpp + '|' + singleMd);
+        }
     } else {
         try {
             const summary = {

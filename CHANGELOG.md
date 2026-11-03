@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.6.6
+
+- Codeforces Gym/私有比赛登录支持：面板「🍪 设置 CF 登录 Cookie」粘贴浏览器 Cookie，自动验证 handle
+- 抓取 Gym 单题/整场时 API 与题面请求自动带 Cookie（整场失败会尝试解析 Gym 页面题目列表）
+- 新增「🔎 检查 CF 登录状态」「🚪 清除 CF 登录 Cookie」
+- Cookie 只存本地 `training/cf-cookies.txt`（已 gitignore），过期重新设置即可
+
 ## 0.6.5
 
 - 新增 **抓取单个题目**：面板「📥 抓取单个题目」/ 命令 `cfTraining.pullProblem`

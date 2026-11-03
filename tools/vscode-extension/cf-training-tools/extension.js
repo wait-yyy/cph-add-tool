@@ -13,6 +13,7 @@ let output = null;
 let statusBar = null;
 let aiStatusBar = null;
 let sidebarProvider = null;
+let lastPreviewed = null;
 
 function workspaceRoot() {
     const folders = vscode.workspace.workspaceFolders;
@@ -134,7 +135,19 @@ function updateAiStatusBar() {
     aiStatusBar.show();
 }
 
-function runNode(scriptName, args, title) {
+function killProcessTree(pid) {
+    if (!pid) return;
+    try {
+        if (process.platform === 'win32') {
+            spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true });
+        } else {
+            try { process.kill(pid, 'SIGTERM'); } catch (e) { /* ignore */ }
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function runNode(scriptName, args, title, options) {
+    options = options || {};
     const root = workspaceRoot();
     if (!root) return Promise.reject(new Error('请先打开算竞工作区文件夹'));
     const scriptPath = toolsPath(scriptName);
@@ -148,21 +161,34 @@ function runNode(scriptName, args, title) {
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: title || 'CF 训练工具',
-        cancellable: false
-    }, function () {
+        cancellable: !!options.cancellable
+    }, function (progress, token) {
         return new Promise(function (resolve) {
             let stdout = '';
             let stderr = '';
             let child;
+            let cancelled = false;
+            let killTimer = null;
             try {
                 child = spawn('node', [scriptPath].concat(args || []), { cwd: root, windowsHide: true });
             } catch (e) {
-                return resolve({ code: -1, stdout: '', stderr: String(e) });
+                return resolve({ code: -1, stdout: '', stderr: String(e), cancelled: false });
+            }
+            if (token && token.onCancellationRequested) {
+                token.onCancellationRequested(function () {
+                    cancelled = true;
+                    if (progress) { try { progress.report({ message: '正在中断…' }); } catch (e) { /* ignore */ } }
+                    killProcessTree(child.pid);
+                    killTimer = setTimeout(function () { killProcessTree(child.pid); }, 1500);
+                });
             }
             child.stdout.on('data', function (d) { const s = d.toString(); stdout += s; if (output) output.append(s); });
             child.stderr.on('data', function (d) { const s = d.toString(); stderr += s; if (output) output.append(s); });
-            child.on('error', function (e) { resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e) }); });
-            child.on('close', function (code) { resolve({ code: code, stdout: stdout, stderr: stderr }); });
+            child.on('error', function (e) { resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e), cancelled: cancelled }); });
+            child.on('close', function (code) {
+                if (killTimer) clearTimeout(killTimer);
+                resolve({ code: code, stdout: stdout, stderr: stderr, cancelled: cancelled || !!(token && token.isCancellationRequested) });
+            });
         });
     });
 }
@@ -282,6 +308,55 @@ function reportFailure(action, result) {
 
 /* ---------------- commands ---------------- */
 
+async function previewStatement(mdPath) {
+    if (!fs.existsSync(mdPath)) return false;
+    try {
+        await vscode.commands.executeCommand('markdown.showPreviewToSide', vscode.Uri.file(mdPath));
+        lastPreviewed = { md: mdPath, ts: Date.now() };
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function openProblemWithStatement(cppPath) {
+    const mdPath = siblingMarkdown(cppPath);
+    if (fs.existsSync(cppPath)) {
+        try {
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(cppPath));
+            await vscode.window.showTextDocument(doc, vscode.ViewColumn.One, false);
+        } catch (e) { /* ignore */ }
+    }
+    await previewStatement(mdPath);
+}
+
+async function pickPulledProblem(folder) {
+    let problems = [];
+    try {
+        const data = JSON.parse(fs.readFileSync(path.join(folder, 'contest.json'), 'utf8'));
+        problems = Array.isArray(data.problems) ? data.problems.slice() : [];
+    } catch (e) {
+        problems = [];
+    }
+    if (!problems.length) {
+        try {
+            problems = fs.readdirSync(folder).filter(function (f) { return /\.md$/i.test(f); }).map(function (f) {
+                return { base: f.replace(/\.md$/i, ''), name: '' };
+            });
+        } catch (e) {
+            problems = [];
+        }
+    }
+    if (!problems.length) {
+        return vscode.window.showWarningMessage('没有找到可打开的题目');
+    }
+    const pick = await vscode.window.showQuickPick(problems.map(function (p) {
+        return { label: p.base, description: p.name || '', base: p.base };
+    }), { placeHolder: '选择题目：打开 .cpp 并分屏题面 md' });
+    if (!pick) return;
+    await openProblemWithStatement(path.join(folder, pick.base + '.cpp'));
+}
+
 async function cmdPullContest() {
     const url = await vscode.window.showInputBox({
         prompt: '比赛链接（Codeforces / AtCoder / 洛谷 / 牛客），会抓题面 + 建 cpp + 样例缓存',
@@ -292,7 +367,7 @@ async function cmdPullContest() {
     const template = String(vscode.workspace.getConfiguration('cf-training-tools').get('pull.template') || 'new.cpp').trim();
     const pullArgs = [url.trim()];
     if (template) pullArgs.push('--template=' + template);
-    const result = await runNode('pull-contest.js', pullArgs, '抓取整场比赛中…');
+    const result = await runNode('pull-contest.js', pullArgs, '抓取整场比赛中…', { cancellable: true });
     const stdout = String(result.stdout || '');
     const stderr = String(result.stderr || '');
     const folderMatch = /FOLDER\s+(.+)/.exec(stdout);
@@ -306,7 +381,12 @@ async function cmdPullContest() {
     const failed = doneMatch[3];
     const folder = folderMatch ? folderMatch[1].trim() : '';
     const msg = '抓取完成：新增 ' + created + ' 题，跳过 ' + skipped + ' 题' + (failed !== '0' ? ('，失败 ' + failed + ' 题') : '');
-    const pick = await vscode.window.showInformationMessage(msg, ...(folder ? ['打开文件夹'] : []));
+    const buttons = [];
+    if (folder) { buttons.push('选择题目打开'); buttons.push('打开文件夹'); }
+    const pick = await vscode.window.showInformationMessage(msg, ...buttons);
+    if (pick === '选择题目打开' && folder) {
+        return pickPulledProblem(folder);
+    }
     if (pick === '打开文件夹' && folder) {
         try {
             await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(folder));
@@ -872,6 +952,28 @@ function activate(context) {
                 }
             } catch (err) { /* ignore */ }
         }));
+    } catch (e) { /* ignore */ }
+
+    try {
+        if (vscode.window.onDidChangeActiveTextEditor) {
+            context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(function (ed) {
+                try {
+                    if (!ed || !ed.document || ed.document.languageId !== 'cpp') return;
+                    const conf = vscode.workspace.getConfiguration('cf-training-tools');
+                    if (conf.get('autoStatementPreview') === false) return;
+                    const mdPath = siblingMarkdown(ed.document.fileName);
+                    if (!fs.existsSync(mdPath)) return;
+                    if (lastPreviewed && lastPreviewed.md === mdPath && (Date.now() - lastPreviewed.ts) < 8000) return;
+                    setTimeout(function () {
+                        try {
+                            const cur = vscode.window.activeTextEditor;
+                            if (!cur || !cur.document || cur.document.fileName !== ed.document.fileName) return;
+                            previewStatement(mdPath);
+                        } catch (e) { /* ignore */ }
+                    }, 350);
+                } catch (e) { /* ignore */ }
+            }));
+        }
     } catch (e) { /* ignore */ }
 
     const map = {

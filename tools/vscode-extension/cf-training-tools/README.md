@@ -54,6 +54,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 - `https://www.luogu.com.cn/contest/251050`
 - `https://ac.nowcoder.com/acm/contest/85333`
 
+抓取过程中进度通知上有**取消按钮**（可随时中断）；抓取完成后可点「选择题目打开」→ 选一道题，会打开 cpp 并把题面 md **分屏**到侧边。
+
 会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（按**初始模板**生成）、`<题号>.json` 结构化题面数据、`.cph` 样例缓存（CPH 按钮和 `cp.ps1 samples` 都能直接跑样例）；整场还会生成 `contest.json`。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
 
 初始模板默认是仓库根目录的 `new.cpp`，可以这样改：
@@ -84,6 +86,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 配置好后，拉题自动生成的中英题面也会优先用 AI 翻译。生成的 AI 结果在 `.build/ai-hint.md` / `.build/ai-answer.md` 或比赛目录 `review.ai.md`，并自动打开预览。
 
 ## 题面自动预览
+
+- 打开任何有同名 .md 的 .cpp 时，会自动在侧边分屏题面预览；VS Code 设置 cf-training-tools.autoStatementPreview=false 可关闭
 
 - 拉题后题面 md 生成完会自动在右侧打开预览，但**只对当前正在编辑的那道题生效**：整场拉题（一次拉很多题）时不会弹出一堆预览，只有最后一个正在编辑的题目会开
 - 30 秒内同一份题面不会重复弹预览

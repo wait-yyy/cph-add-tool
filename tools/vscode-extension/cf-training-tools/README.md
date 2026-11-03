@@ -2,6 +2,8 @@
 
 把本工作区 `tools/` 下的训练脚本包成 VS Code 命令 / 按钮，避免每次手敲 PowerShell。
 
+> 本插件是「工作区工具启动器」：需要配合 [cph-add-tool](https://gitcode.com/2403_86825600/cph-add-tool) 仓库里的 `tools/` 脚本使用（clone 仓库并用 VS Code 打开该文件夹）。只有插件、没有仓库时，按钮会提示脚本不存在。
+
 ## 安装 / 更新 / 卸载
 
 ```powershell

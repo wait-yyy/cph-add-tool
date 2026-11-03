@@ -3,7 +3,7 @@
     "displayName": "CF Training Tools",
     "description": "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
     "version": "0.6.0",
-    "publisher": "local",
+    "publisher": "waityyy",
     "repository": {
         "type": "git",
         "url": "https://gitcode.com/2403_86825600/cph-add-tool.git"

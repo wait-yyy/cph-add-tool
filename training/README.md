@@ -1,5 +1,7 @@
 # 训练手册（怎么让 agent 带你练算法）
 
+> 交流群：QQ **188241279**（问题反馈 / 使用交流 / 更新通知）
+
 前提：本工作区的 CPH 已打补丁——拉题自动建 `codeforces/<比赛>/` 目录，生成中英对照题面 `<题号>.md` 并自动开预览。
 
 ## 一句话开关
@@ -99,8 +101,9 @@ node tools\pull-contest.js https://www.luogu.com.cn/contest/251050
 node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
 ```
 
-- 每道题生成 `题面.md` + 从 `new.cpp` 复制的 `.cpp` + CPH `.cph` 样例缓存（`cp.ps1 samples`、CPH 按钮都能跑样例）
+- 每道题生成 `题面.md` + 从**初始模板**复制的 `.cpp` + 结构化题面数据 `.json` + CPH `.cph` 样例缓存（`cp.ps1 samples`、CPH 按钮都能跑样例）；整场还会生成 `contest.json`
 - 默认跳过已有 md；`--force` 覆盖，`--only=A,B` 只抓部分，`--out=<dir>` 指定输出目录，`--no-cpp` 只抓题面
+- **初始模板**：默认 `new.cpp`；`--template=<文件>` / 插件设置 `cf-training-tools.pull.template` / `training/pull-config.json` 三选一（见项目 README）
 - 插件面板「📥 抓取整场比赛」同款；洛谷比赛题会自动带 `?contestId=`，牛客自动探测 A..Z 题号
 - **Codeforces**：正赛用 CF API 枚举；题面页被 Cloudflare 403 时自动改用洛谷镜像 `CF<id><index>` 抓取。**Gym/私有比赛需要登录，不支持整场抓取**。
 

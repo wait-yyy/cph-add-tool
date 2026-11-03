@@ -10,7 +10,7 @@
  *
  * Usage:
  *   node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force]
- *                              [--no-cpp] [--no-translate] [--no-ai]
+ *                              [--template=<cpp>] [--no-cpp] [--no-translate] [--no-ai]
  *
  * Examples:
  *   node tools/pull-contest.js https://atcoder.jp/contests/abc402
@@ -37,7 +37,7 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const IS_WIN = process.platform === 'win32';
 
 function usage() {
-    console.log('usage: node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force] [--no-cpp] [--no-translate] [--no-ai]');
+    console.log('usage: node tools/pull-contest.js <contestUrl> [--out=<dir>] [--only=A,B] [--force] [--template=<cpp>] [--no-cpp] [--no-translate] [--no-ai]');
     console.log('  Codeforces: https://codeforces.com/contest/2278');
     console.log('  AtCoder : https://atcoder.jp/contests/abc402');
     console.log('  洛谷    : https://www.luogu.com.cn/contest/251050');
@@ -51,6 +51,7 @@ function parseArgs(argv) {
         const a = argv[i];
         if (a.indexOf('--out=') === 0) flags.out = a.slice(6);
         else if (a.indexOf('--only=') === 0) flags.only = a.slice(7).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        else if (a.indexOf('--template=') === 0) flags.template = a.slice(11);
         else if (a === '--force') flags.force = true;
         else if (a === '--no-cpp') flags.noCpp = true;
         else if (a === '--no-translate') flags.noTranslate = true;
@@ -97,6 +98,16 @@ function readLentille(html) {
     const m = /<script id="lentille-context"[^>]*>([\s\S]*?)<\/script>/.exec(html);
     if (!m) return null;
     try { return JSON.parse(m[1]); } catch (e) { return null; }
+}
+
+// Optional local settings: training/pull-config.json (gitignored), e.g.
+//   { "template": "templates/new.cpp" }
+function loadPullConfig() {
+    try {
+        const file = path.join(ROOT, 'training', 'pull-config.json');
+        if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8')) || {};
+    } catch (e) { /* ignore */ }
+    return {};
 }
 
 function detect(url) {
@@ -388,7 +399,15 @@ function main() {
     let created = 0;
     let skipped = 0;
     let failed = 0;
-    const tpl = path.join(ROOT, 'new.cpp');
+    const pullCfg = loadPullConfig();
+    let template = parsed.flags.template || pullCfg.template || 'new.cpp';
+    template = path.resolve(ROOT, template);
+    if (!parsed.flags.noCpp && !fs.existsSync(template)) {
+        console.error('模板不存在: ' + template + '（用 --template 或 training/pull-config.json 设置）');
+        return 1;
+    }
+    console.log('TEMPLATE ' + (parsed.flags.noCpp ? '（不创建 cpp）' : template));
+    const tpl = template;
 
     meta.problems.forEach(function (p) {
         const cppPath = path.join(outDir, p.base + '.cpp');
@@ -406,7 +425,7 @@ function main() {
             if (fs.existsSync(tpl)) {
                 fs.copyFileSync(tpl, cppPath);
             } else {
-                console.error('WARN     new.cpp not found, cpp not created: ' + p.base);
+                console.error('WARN     模板不存在，cpp 未创建: ' + p.base);
             }
         }
         const samplesTmp = path.join(ROOT, '.build', 'pull-samples-' + process.pid + '-' + p.base + '.json');
@@ -431,6 +450,20 @@ function main() {
             try { fs.unlinkSync(samplesTmp); } catch (e) { /* ignore */ }
             return;
         }
+        try {
+            if (fs.existsSync(samplesTmp)) {
+                const data = JSON.parse(fs.readFileSync(samplesTmp, 'utf8'));
+                data.platform = info.platform;
+                data.statement = p.base + '.md';
+                data.cpp = parsed.flags.noCpp ? '' : (p.base + '.cpp');
+                data.data = p.base + '.json';
+                if (!data.group) data.group = meta.group || '';
+                fs.writeFileSync(path.join(outDir, p.base + '.json'), JSON.stringify(data, null, 2) + '\n', 'utf8');
+                console.log('  DATA JSON written');
+            }
+        } catch (e) {
+            console.error('  WARN data json failed: ' + e.message);
+        }
         if (!parsed.flags.noCpp && fs.existsSync(cppPath)) {
             try {
                 const ok = writeCphCache(outDir, cppPath, samplesTmp, meta.group, p.url);
@@ -442,6 +475,32 @@ function main() {
         try { fs.unlinkSync(samplesTmp); } catch (e) { /* ignore */ }
         created++;
     });
+
+    try {
+        const summary = {
+            platform: info.platform,
+            source: url,
+            name: meta.group || '',
+            folder: outDir,
+            template: parsed.flags.noCpp ? '' : template,
+            generatedAt: new Date().toISOString(),
+            problemCount: meta.problems.length,
+            problems: meta.problems.map(function (p) {
+                return {
+                    base: p.base,
+                    name: p.name || '',
+                    url: p.url,
+                    md: p.base + '.md',
+                    cpp: parsed.flags.noCpp ? '' : (p.base + '.cpp'),
+                    data: p.base + '.json'
+                };
+            })
+        };
+        fs.writeFileSync(path.join(outDir, 'contest.json'), JSON.stringify(summary, null, 2) + '\n', 'utf8');
+        console.log('CONTEST JSON ' + path.join(outDir, 'contest.json'));
+    } catch (e) {
+        console.error('WARN contest json failed: ' + e.message);
+    }
 
     console.log('DONE created=' + created + ' skipped=' + skipped + ' failed=' + failed);
     return (created === 0 && failed > 0) ? 1 : 0;

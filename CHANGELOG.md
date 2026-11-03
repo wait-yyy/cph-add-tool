@@ -1,5 +1,16 @@
 # 更新日志
 
+## 0.6.2
+
+- 新增 **初始模板接口**：拉题生成 `.cpp` 的模板可配置
+  - 命令行 `--template=<文件>`
+  - 插件设置 `cf-training-tools.pull.template` / 面板「🧩 设置拉题初始模板」
+  - `training/pull-config.json`（示例 `training/pull-config.example.json`）
+  - 默认 `new.cpp`
+- `pull-contest.js` 每道题额外生成 `<题号>.json`（结构化题面数据：title / url / group / 时限 / 内存 / 样例），整场生成 `contest.json`（题目索引 + 模板 + 生成时间）
+- 项目介绍加入 QQ 交流群：**188241279**
+- 文档改为「直接给比赛链接」为主流程，CPH 变为可选
+
 ## 0.6.1
 
 - **整场抓取支持 Codeforces 正赛**：`tools/pull-contest.js` 用 CF API 枚举题目，按 `new.cpp` 建 cpp、生成 `.cph` 样例缓存

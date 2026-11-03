@@ -289,7 +289,10 @@ async function cmdPullContest() {
         validateInput: function (s) { return /^https?:\/\//i.test(String(s || '').trim()) ? null : '请输入 http(s) 链接'; }
     });
     if (!url) return;
-    const result = await runNode('pull-contest.js', [url.trim()], '抓取整场比赛中…');
+    const template = String(vscode.workspace.getConfiguration('cf-training-tools').get('pull.template') || 'new.cpp').trim();
+    const pullArgs = [url.trim()];
+    if (template) pullArgs.push('--template=' + template);
+    const result = await runNode('pull-contest.js', pullArgs, '抓取整场比赛中…');
     const stdout = String(result.stdout || '');
     const stderr = String(result.stderr || '');
     const folderMatch = /FOLDER\s+(.+)/.exec(stdout);
@@ -310,6 +313,23 @@ async function cmdPullContest() {
         } catch (e) {
             try { await vscode.env.openExternal(vscode.Uri.file(folder)); } catch (e2) { /* ignore */ }
         }
+    }
+}
+
+async function cmdPullTemplate() {
+    const picked = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        openLabel: '用作初始模板',
+        filters: { 'C++ 文件': ['cpp', 'cc', 'cxx'] }
+    });
+    if (!picked || !picked.length) return;
+    const file = picked[0].fsPath;
+    try {
+        const conf = vscode.workspace.getConfiguration('cf-training-tools');
+        await conf.update('pull.template', file, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage('拉题初始模板已设置：' + file + '（之后「抓取整场比赛」会用它生成 .cpp）');
+    } catch (e) {
+        vscode.window.showErrorMessage('设置模板失败：' + e.message);
     }
 }
 
@@ -628,6 +648,7 @@ async function cmdMenu() {
         { label: '$(plug) 测试 AI 连接', command: 'cfTraining.aiTest' },
         { label: '$(calendar) 生成/刷新周题单（CF+AtCoder+洛谷）', description: 'training/plan.md', command: 'cfTraining.plan' },
         { label: '$(cloud-download) 抓取整场比赛（Codeforces/洛谷/牛客/AtCoder）', description: '题面 + cpp + 样例缓存', command: 'cfTraining.pullContest' },
+        { label: '$(file) 设置拉题初始模板', description: '生成新 .cpp 用的模板文件', command: 'cfTraining.pullTemplate' },
         { label: '$(book) 打开完整周题单', command: 'cfTraining.openPlan' },
         { label: '$(checklist) 打开重做队列', command: 'cfTraining.openRedo' },
         { label: '$(history) 复盘最近一场', description: '生成 review.md 并打开', command: 'cfTraining.reviewLatest' },
@@ -713,6 +734,7 @@ function sidebarHtml() {
             title: '训练',
             items: [
                 { cmd: 'cfTraining.pullContest', label: '📥 抓取整场比赛（CF/洛谷/牛客/AtCoder）', primary: true },
+                { cmd: 'cfTraining.pullTemplate', label: '🧩 设置拉题初始模板' },
                 { cmd: 'cfTraining.plan', label: '📅 生成 / 刷新周题单', primary: true },
                 { cmd: 'cfTraining.reviewLatest', label: '🧾 复盘最近一场', primary: true },
                 { cmd: 'cfTraining.reviewInput', label: '🔍 复盘指定比赛…' }
@@ -856,6 +878,7 @@ function activate(context) {
         'cfTraining.menu': cmdMenu,
         'cfTraining.plan': cmdPlan,
         'cfTraining.pullContest': cmdPullContest,
+        'cfTraining.pullTemplate': cmdPullTemplate,
         'cfTraining.openPlan': cmdOpenPlan,
         'cfTraining.openRedo': cmdOpenRedo,
         'cfTraining.aiHint': cmdAiHint,

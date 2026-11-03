@@ -3,6 +3,8 @@
 把本工作区 `tools/` 下的训练脚本包成 VS Code 命令 / 按钮，避免每次手敲 PowerShell。
 
 > 本插件是「工作区工具启动器」：需要配合 [cph-add-tool](https://gitcode.com/2403_86825600/cph-add-tool) 仓库里的 `tools/` 脚本使用（clone 仓库并用 VS Code 打开该文件夹）。只有插件、没有仓库时，按钮会提示脚本不存在。
+>
+> 交流群：QQ **188241279**（问题反馈 / 使用交流 / 更新通知）
 
 ## 安装 / 更新 / 卸载
 
@@ -52,7 +54,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 - `https://www.luogu.com.cn/contest/251050`
 - `https://ac.nowcoder.com/acm/contest/85333`
 
-会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（从 `new.cpp` 复制）、`.cph` 样例缓存（CPH 按钮和 `cp.ps1 samples` 都能直接跑样例）。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
+会为每道题生成：`<题号>.md` 题面（英文自动 AI/ Bing 翻译）、`<题号>.cpp`（按**初始模板**生成）、`<题号>.json` 结构化题面数据、`.cph` 样例缓存（CPH 按钮和 `cp.ps1 samples` 都能直接跑样例）；整场还会生成 `contest.json`。已存在的 md 默认跳过，需要刷新在终端加 `--force`。
+
+初始模板默认是仓库根目录的 `new.cpp`，可以这样改：
+- 面板「🧩 设置拉题初始模板」→ 选一个 `.cpp` 文件
+- VS Code 设置 `cf-training-tools.pull.template`（相对路径或绝对路径）
+- 命令行 `--template=<文件>`，或 `training/pull-config.json` 里的 `"template"`
 
 > Codeforces 题面页有 Cloudflare 防护，`cph-statement.js` 会在 403 时自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面；Gym/私有比赛仍需要登录。
 

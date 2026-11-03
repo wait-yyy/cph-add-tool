@@ -30,6 +30,7 @@ new1.cpp
 
 # ---- local config / secrets / personal training data ----
 /training/ai-config.json
+/training/pull-config.json
 /training/cf-handle.txt
 /training/plan.md
 /training/plan.json

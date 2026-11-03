@@ -188,7 +188,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cp.ps1 stress -Solutio
   - `tools\cf-plan.ps1 [-Count 5] [-Refresh] [-Sources cf,atcoder,luogu]` → 生成 `training\plan.md`（弱项 tag + Codeforces/AtCoder/洛谷三平台题目）、`training\plan.json`（VS Code 面板用）、`training\redo.md`（AC 但错 >=3 次的重做队列）。AtCoder 数据来自 kenkoooo 公开题库，洛谷从题库列表页抓（脚本自动取 C3VK cookie）
   - `tools\cf-review.ps1 [-ContestId N] [-Refresh]` → 生成 `codeforces\<比赛目录>\review.md`，API 数据自动填，`<!-- AGENT -->` 占位符由 agent 在用户说「复盘」时补分析
   - 私有 gym / 隐藏比赛 API 查不到（`contestId not found`），这种只能基于本地 `.cpp` / `.cph` 手动复盘
-  - `tools\pull-contest.js <比赛链接>` → 整场抓取（Codeforces / AtCoder / 洛谷 / 牛客）：题面 md + 按 `new.cpp` 建 cpp + CPH `.cph` 样例缓存；`--only=A,B` 只抓部分、`--out=<dir>` 指定目录、`--force` 覆盖已存在 md、`--no-cpp` 只抓题面。CF 正赛支持（API 枚举 + 洛谷镜像兜底），Gym/私有比赛需登录不支持。插件面板「📥 抓取整场比赛」同款。
+  - `tools\pull-contest.js <比赛链接>` → 整场抓取（Codeforces / AtCoder / 洛谷 / 牛客）：题面 md + 按**初始模板**建 cpp + 结构化数据 `<题号>.json` + 整场 `contest.json` + CPH `.cph` 样例缓存；`--only=A,B` 只抓部分、`--out=<dir>` 指定目录、`--force` 覆盖已存在 md、`--no-cpp` 只抓题面。CF 正赛支持（API 枚举 + 洛谷镜像兜底），Gym/私有比赛需登录不支持。初始模板默认 `new.cpp`，可设 `--template=<文件>` / 插件设置 `cf-training-tools.pull.template` / `training\pull-config.json`。插件面板「📥 抓取整场比赛」「🧩 设置拉题初始模板」同款。项目 QQ 群：188241279。
 - 本机已装本地插件 `local.cf-training-tools`（活动栏「CF 训练」面板：当前题单/AI 按钮 + 状态栏菜单）：把周题单/复盘/题面/编译样例/CPH 补丁/AI 操作包成 VS Code 按钮。源码在 `tools\vscode-extension\cf-training-tools`，改完跑 `tools\install-vscode-extension.ps1` 再重载窗口生效；`-Uninstall` 卸载。
 - AI 助手（可选，配置 `training\ai-config.json`，OpenAI 兼容：DeepSeek / SiliconFlow / 任意网关；key 只存本地，不要写进 md 或回答里）：
   - `tools\ai-client.js ping|translate|review|hint|ask`：连通性测试 / 整篇翻译 / 赛后复盘分析 / 分级提示 / 问答

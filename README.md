@@ -4,6 +4,39 @@
 拉题自动建目录并抓题面、中英对照 Markdown、AI 提示/复盘、周题单、赛后复盘、整场比赛一键抓取，以及一个活动栏面板把这些操作变成按钮。
 
 > 这是从个人工作区整理出来的**工具包**：只包含脚本、VS Code 插件源码、模板和文档，不包含题目代码、比赛数据和个人配置。
+>
+> **交流群**：QQ **188241279**（问题反馈 / 使用交流 / 更新通知）
+
+## 拉题方式（推荐：直接给比赛链接）
+
+不再依赖 Competitive Companion：把**比赛链接**直接交给工具，自动把整场题面/样例扒下来，并给每道题生成 cpp + 样例缓存：
+
+```powershell
+node tools\pull-contest.js https://codeforces.com/contest/2278
+node tools\pull-contest.js https://atcoder.jp/contests/abc402
+node tools\pull-contest.js https://www.luogu.com.cn/contest/251050
+node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
+```
+
+也可以直接在 VS Code 面板点「📥 抓取整场比赛」，粘贴链接即可。
+
+每道题产物：
+- `<题号>.md`：中英对照题面（英文自动翻译）
+- `<题号>.cpp`：按**初始模板**生成（可配置，见下）
+- `<题号>.json`：结构化题面数据（title / url / group / 时限 / 内存 / 样例 tests）
+- `.cph`：CPH 样例缓存（`cp.ps1 samples` / CPH 按钮可直接跑样例）
+- 整场还有 `contest.json`：平台、比赛名、题目列表、模板、生成时间
+
+CPH（Competitive Companion）仍然可用，只是不再是主流程：需要"浏览器一键拉题"时再用，补丁生成的目录/缓存格式与 `pull-contest.js` 一致。
+
+## 初始模板（可配置）
+
+默认使用仓库根目录的 `new.cpp`。设置优先级从高到低：
+
+1. 命令行：`node tools\pull-contest.js <链接> --template=templates\new.cpp`
+2. 插件设置：`Ctrl+,` 搜 `CF 训练` → `cf-training-tools.pull.template`；或面板「🧩 设置拉题初始模板」选文件
+3. `training/pull-config.json`（复制 `training/pull-config.example.json`）：`{ "template": "new.cpp" }`
+4. 默认 `new.cpp`
 
 ## 功能
 

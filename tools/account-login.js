@@ -114,9 +114,9 @@ function checkCodeforces(cookie) {
     });
     const stdout = String(r.stdout || '');
     const stderr = String(r.stderr || '');
-    const m = /OK handle=([^\r\n]+)/.exec(stdout);
+    const m = /OK(?: handle=([^\r\n]*))?/.exec(stdout);
     if (r.status === 0 && m) {
-        return { ok: true, nickname: m[1].trim(), detail: 'Cookie 有效' };
+        return { ok: true, nickname: (m[1] || '').trim(), detail: 'Cookie 有效' };
     }
     return { ok: false, nickname: '', detail: (stderr.trim().split(/\r?\n/)[0] || 'Cookie 无效或已过期') };
 }

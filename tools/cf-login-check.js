@@ -9,10 +9,12 @@
  * Exit codes: 0 = logged in, 1 = request failed / not logged in, 2 = no cookie.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { execFileSync } = require('child_process');
 const auth = require('./_cf_auth.js');
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const UA = auth.getUserAgent();
 
 function fetchPage(url) {
     const args = [
@@ -26,6 +28,25 @@ function fetchPage(url) {
     return execFileSync('curl.exe', args, { maxBuffer: 30 * 1024 * 1024, timeout: 30000, windowsHide: true }).toString('utf8');
 }
 
+function fetchApi() {
+    const args = [
+        '-sS', '--max-time', '25', '--compressed',
+        '-A', UA,
+        '-H', 'Accept: application/json,text/plain,*/*',
+        '-H', 'Cookie: ' + auth.readCookie(),
+        'https://codeforces.com/api/contest.standings?contestId=106648'
+    ];
+    return execFileSync('curl.exe', args, { maxBuffer: 30 * 1024 * 1024, timeout: 30000, windowsHide: true }).toString('utf8');
+}
+
+function readSavedHandle() {
+    try {
+        return String(fs.readFileSync(path.join(path.dirname(auth.COOKIE_FILE), 'cf-handle.txt'), 'utf8')).trim();
+    } catch (e) {
+        return '';
+    }
+}
+
 const cookie = auth.readCookie();
 if (!cookie) {
     console.error('未配置 Codeforces Cookie：' + auth.COOKIE_FILE);
@@ -33,19 +54,28 @@ if (!cookie) {
     process.exit(2);
 }
 
+let handle = '';
 try {
     const html = fetchPage('https://codeforces.com/settings/general');
     const m1 = /handle\s*=\s*"([^"]+)"/i.exec(html);
     const m2 = /href="\/profile\/([A-Za-z0-9_.\-]+)"/i.exec(html);
-    const handle = (m1 && m1[1]) || (m2 && m2[1]) || '';
-    if (!handle) {
-        console.error('请求成功，但没有解析到登录 handle（Cookie 可能不完整或已过期）。');
-        process.exit(1);
-    }
-    console.log('OK handle=' + handle);
+    handle = (m1 && m1[1]) || (m2 && m2[1]) || '';
 } catch (e) {
-    const msg = String(e && e.message ? e.message : e).split(/\r?\n/)[0];
-    console.error('登录检查失败：' + msg);
-    console.error('常见原因：Cookie 不完整/已过期、Cloudflare 拦截（复制时请包含 cf_clearance 等全部 Cookie）。');
+    // settings 页被 Cloudflare 拦截时，改用需要登录的 Gym API 验证
+}
+
+if (!handle) {
+    try {
+        const data = JSON.parse(fetchApi());
+        if (data && data.status === 'OK') {
+            handle = readSavedHandle();
+            console.log('OK handle=' + handle);
+            process.exit(0);
+        }
+    } catch (e) {
+        // ignore, fall through
+    }
+    console.error('登录检查失败：Cookie 无效/已过期，或 Cloudflare 拦截（需包含 cf_clearance，并与浏览器 User-Agent 一致）。');
     process.exit(1);
 }
+console.log('OK handle=' + handle);

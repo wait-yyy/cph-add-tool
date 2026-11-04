@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.9.7
+
+- 从 Copy as cURL 中同时提取浏览器 User-Agent 保存到 `training/cf-ua.txt`，CF 登录检查/请求使用与浏览器一致的 UA（cf_clearance 与 UA 绑定，UA 不一致会 403）
+- CF 登录检查优先用需要登录的 Gym API 验证 Cookie，避免 settings 页被 Cloudflare 403 时误判
+- Cookie 解析修复：只提取 `cookie:` / `-b`，不会再误把 Accept 当 Cookie
+
 ## 0.9.6
 
 - **修复 Copy as cURL 解析错误**：之前会把第一个 `-H`（如 Accept）当成 Cookie，导致保存出错误 Cookie、登录 403

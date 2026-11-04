@@ -46,7 +46,7 @@ const cfAuth = require('./_cf_auth.js');
 
 const WORKSPACE_ROOT = path.resolve(__dirname, '..');
 const LOG_FILE = path.join(WORKSPACE_ROOT, '.build', 'cph-statement.log');
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const UA = cfAuth.getUserAgent();
 const TIMEOUT_MS = 20000;
 
 let scriptNoAi = false;

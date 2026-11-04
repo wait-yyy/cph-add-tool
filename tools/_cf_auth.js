@@ -15,6 +15,8 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const COOKIE_FILE = path.join(ROOT, 'training', 'cf-cookies.txt');
+const UA_FILE = path.join(ROOT, 'training', 'cf-ua.txt');
+const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 function extractCookieFromCurl(text) {
     const m1 = /(?:-H|--header)\s+['"]cookie:\s*([^'"]+)['"]/i.exec(text);
@@ -51,6 +53,31 @@ function writeCookie(value) {
     return true;
 }
 
+function extractUserAgentFromCurl(text) {
+    const m = /(?:-A|--user-agent)\s+['"]([^'"]+)['"]/i.exec(String(text || ''));
+    return m ? m[1] : '';
+}
+
+function writeUserAgent(value) {
+    const ua = extractUserAgentFromCurl(value) || String(value == null ? '' : value).replace(/\r?\n/g, ' ').trim();
+    if (!ua) return false;
+    try {
+        fs.mkdirSync(path.dirname(UA_FILE), { recursive: true });
+        fs.writeFileSync(UA_FILE, ua + '\n', 'utf8');
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function getUserAgent() {
+    try {
+        const ua = String(fs.readFileSync(UA_FILE, 'utf8')).trim();
+        if (ua) return ua;
+    } catch (e) { /* ignore */ }
+    return DEFAULT_UA;
+}
+
 function clearCookie() {
     try {
         fs.unlinkSync(COOKIE_FILE);
@@ -72,6 +99,9 @@ function isCfUrl(url) {
 module.exports = {
     ROOT: ROOT,
     COOKIE_FILE: COOKIE_FILE,
+    UA_FILE: UA_FILE,
+    getUserAgent: getUserAgent,
+    writeUserAgent: writeUserAgent,
     readCookie: readCookie,
     writeCookie: writeCookie,
     clearCookie: clearCookie,

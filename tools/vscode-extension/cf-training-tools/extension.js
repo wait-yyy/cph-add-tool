@@ -415,6 +415,12 @@ function extractCookieFromCurl(text) {
     return m2 ? m2[1] : '';
 }
 
+function extractUserAgentFromCurl(value) {
+    const text = String(value == null ? '' : value);
+    const m = /(?:-A|--user-agent)\s+['"]([^'"]+)['"]/i.exec(text);
+    return m ? m[1] : '';
+}
+
 function normalizeCookieText(value) {
     let text = String(value == null ? '' : value).trim();
     if (/\bcurl(\.exe)?\b/i.test(text) || /(?:^|\s)-H\s/.test(text) || /(?:^|\s)-b\s/.test(text)) {
@@ -694,6 +700,12 @@ async function cmdCfLogin() {
             return vscode.window.showWarningMessage('没有识别到 Cookie：请复制「Cookie 请求头」或整段 Copy as cURL，不要只复制 Accept/User-Agent。');
         }
         fs.writeFileSync(file, normalizedCookie + '\n', 'utf8');
+        if (platform === 'codeforces' || String(file).indexOf('cf-cookies') >= 0) {
+            const ua = extractUserAgentFromCurl(cookie);
+            if (ua) {
+                try { fs.writeFileSync(path.join(workspaceRoot(), 'training', 'cf-ua.txt'), ua + '\n', 'utf8'); } catch (e) { /* ignore */ }
+            }
+        }
     } catch (e) {
         return vscode.window.showErrorMessage('保存 Codeforces Cookie 失败：' + e.message);
     }
@@ -753,6 +765,12 @@ async function cmdPlatformLogin(platform) {
             return vscode.window.showWarningMessage('没有识别到 Cookie：请复制「Cookie 请求头」或整段 Copy as cURL，不要只复制 Accept/User-Agent。');
         }
         fs.writeFileSync(file, normalizedCookie + '\n', 'utf8');
+        if (platform === 'codeforces' || String(file).indexOf('cf-cookies') >= 0) {
+            const ua = extractUserAgentFromCurl(cookie);
+            if (ua) {
+                try { fs.writeFileSync(path.join(workspaceRoot(), 'training', 'cf-ua.txt'), ua + '\n', 'utf8'); } catch (e) { /* ignore */ }
+            }
+        }
     } catch (e) {
         return vscode.window.showErrorMessage('保存 ' + info.label + ' Cookie 失败：' + e.message);
     }

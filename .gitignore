@@ -47,3 +47,4 @@ __pycache__/
 node_modules/
 training/accounts.json
 training/cookies.*.txt
+training/cf-ua.txt

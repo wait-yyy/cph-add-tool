@@ -1128,6 +1128,29 @@ async function cmdBrowserLogin() {
     vscode.window.showInformationMessage('已打开 ' + picked.label + ' 登录页。请在浏览器窗口里登录；登录态会保存在本机，后续浏览器提交/抓取可复用。');
 }
 
+async function cmdBrowserSubmitAuto() {
+    const cpp = activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
+    await saveDocumentForPath(cpp);
+    const confirm = await vscode.window.showWarningMessage(
+        '将用浏览器 profile 自动提交当前代码到对应 OJ。提交前确认浏览器 profile 已登录，且代码是自己要提交的版本。',
+        { modal: true }, '自动提交'
+    );
+    if (confirm !== '自动提交') return;
+    const res = await runNode('browser-submit.js', [cpp], '浏览器自动提交中…', { cancellable: true });
+    const data = parseLastJson(String(res.stdout || ''));
+    if (!data) return vscode.window.showErrorMessage('浏览器提交没有返回结果（见输出面板）');
+    if (!data.ok) {
+        const pick = await vscode.window.showWarningMessage(data.message || '浏览器提交失败', data.needLogin ? '打开浏览器登录' : '确定');
+        if (pick === '打开浏览器登录') await vscode.commands.executeCommand('algorithmTraining.browserLogin');
+        return;
+    }
+    const pick = await vscode.window.showInformationMessage(data.message || '已提交', data.submissionUrl ? '打开提交记录' : '确定');
+    if (pick === '打开提交记录' && data.submissionUrl) {
+        try { await vscode.env.openExternal(vscode.Uri.parse(data.submissionUrl)); } catch (e) { /* ignore */ }
+    }
+}
+
 async function cmdSubmitBrowser() {
     const cpp = activeCppPath();
     if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
@@ -1983,6 +2006,7 @@ function samplesHtml(state) {
         '<button id="run">▶ 运行全部测试</button>' +
         '<button id="submit">🚀 提交到 OJ</button>' +
         '<button id="submitBrowser">🌐 浏览器提交（复制代码）</button>' +
+        '<button id="submitAuto">🖥 自动提交（浏览器）</button>' +
         '<h3>样例</h3>' +
         '<div id="cases-sample">' + sampleCases + '</div>' +
         '<h3>自定义测试</h3>' +
@@ -2000,6 +2024,7 @@ function samplesHtml(state) {
         'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run",values:collectEdits()});});' +
         'document.getElementById("submit").addEventListener("click",function(){vscode.postMessage({command:"submit"});});' +
         'document.getElementById("submitBrowser").addEventListener("click",function(){vscode.postMessage({command:"submitBrowser"});});' +
+        'document.getElementById("submitAuto").addEventListener("click",function(){vscode.postMessage({command:"submitAuto"});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:valById(i,"tin"),output:valById(i,"tout")});});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
@@ -2046,6 +2071,7 @@ class SamplesViewProvider {
                 if (msg.command === 'runOne') return await self.runOne(msg);
                 if (msg.command === 'submit') return await vscode.commands.executeCommand('algorithmTraining.submit', self.cpp);
                 if (msg.command === 'submitBrowser') return await vscode.commands.executeCommand('algorithmTraining.submitBrowser');
+                if (msg.command === 'submitAuto') return await vscode.commands.executeCommand('algorithmTraining.browserSubmitAuto');
             } catch (e) {
                 if (output && output.appendLine) output.appendLine('[samples] ERROR ' + (e && e.stack ? e.stack : String(e)));
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
@@ -2408,6 +2434,7 @@ function activate(context) {
         'algorithmTraining.setJudgeHandle': cmdSetJudgeHandle,
         'algorithmTraining.aiDebug': cmdAiDebug,
         'algorithmTraining.browserLogin': cmdBrowserLogin,
+        'algorithmTraining.browserSubmitAuto': cmdBrowserSubmitAuto,
         'algorithmTraining.submitBrowser': cmdSubmitBrowser,
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
         'algorithmTraining.aiEditorial': cmdAiEditorial,

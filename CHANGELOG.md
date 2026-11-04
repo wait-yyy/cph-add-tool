@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.19.0
+
+- 新增 **浏览器自动提交（Edge/Chrome）**：用独立 profile（training/browser-profile）复用登录态，CDP 填代码/选语言/点提交
+  - 支持 Codeforces（正赛/Gym）、AtCoder；洛谷/牛客仍用「浏览器提交（复制代码）」兜底
+  - 需要先在「浏览器登录」里登录对应平台；首次使用会弹出可见浏览器窗口
+- 样例面板新增「🖥 自动提交（浏览器）」按钮
+
 ## 0.18.0
 
 - 新增「浏览器登录」：用本机 Edge/Chrome 独立 profile 打开 OJ 登录页，登录态保存在 `training/browser-profile/`（gitignore）

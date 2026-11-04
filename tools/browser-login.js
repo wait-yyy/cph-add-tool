@@ -55,6 +55,7 @@ try { fs.mkdirSync(PROFILE, { recursive: true }); } catch (e) { /* ignore */ }
 try {
     const child = spawn(browser, [
         '--user-data-dir=' + PROFILE,
+        '--remote-debugging-port=9333',
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-blink-features=AutomationControlled',

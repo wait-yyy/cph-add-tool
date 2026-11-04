@@ -1,8 +1,8 @@
 {
     "name":  "algorithm-training-tool",
-    "displayName":  "Algorithm Training Tool",
-    "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version":  "0.19.2",
+    "displayName":  "Algorithm Training Tool（算法训练）",
+    "description":  "算法竞赛训练工具：拉题/题面、样例自测、AI 找错/审思路/题解/调题单、同题 AC、提交、五平台账号、Competitive Companion 接收器",
+    "version":  "1.0.0",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",
@@ -13,10 +13,14 @@
                     "vscode":  "^1.80.0"
                 },
     "categories":  [
+                       "Education",
                        "Other"
                    ],
     "activationEvents":  [
-                             "onStartupFinished"
+                             "onStartupFinished",
+                             "onView:algorithmTrainingSidebar",
+                             "onView:algorithmTraining.main",
+                             "onView:algorithmTraining.samples"
                          ],
     "main":  "./extension.js",
     "contributes":  {
@@ -334,7 +338,17 @@
                      "codeforces",
                      "atcoder",
                      "luogu",
+                     "nowcoder",
+                     "leetcode",
+                     "algorithm",
+                     "competitive-programming",
                      "training",
-                     "competitive programming"
-                 ]
+                     "sample-test",
+                     "ai"
+                 ],
+    "bugs":  {
+                 "url":  "https://gitcode.com/2403_86825600/cph-add-tool/issues"
+             },
+    "icon":  "media/icon.png",
+    "license":  "MIT"
 }

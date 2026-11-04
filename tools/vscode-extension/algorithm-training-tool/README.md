@@ -1,6 +1,8 @@
-# Algorithm Training Tool（本地 VS Code 插件）
+# Algorithm Training Tool（算法训练工具）
 
-把本工作区 `tools/` 下的训练脚本包成 VS Code 命令 / 按钮，避免每次手敲 PowerShell。
+算法竞赛训练工具：拉题/题面、样例自测（计分/自定义测试）、AI 找错/审思路/题解/调题单、同题 AC、浏览器提交、五平台账号/Handle、Competitive Companion 接收器。
+
+> Marketplace 安装后仍需 clone [cph-add-tool](https://gitcode.com/2403_86825600/cph-add-tool) 仓库并用 VS Code 打开：插件命令会调用仓库里的 `tools/` 脚本；只有插件没有脚本时按钮会提示脚本不存在。
 
 > 本插件是「工作区工具启动器」：需要配合 [cph-add-tool](https://gitcode.com/2403_86825600/cph-add-tool) 仓库里的 `tools/` 脚本使用（clone 仓库并用 VS Code 打开该文件夹）。只有插件、没有仓库时，按钮会提示脚本不存在。
 >

@@ -1,5 +1,13 @@
 # 更新日志
 
+## 1.0.0
+
+- 首个 Marketplace 正式版（新扩展名 `algorithm-training-tool`）
+- 新增 256×256 PNG 图标、MIT LICENSE、市场分类/关键词
+- 扩展说明更新为 Marketplace 安装说明（仍需 clone 仓库提供 tools/ 脚本）
+- 功能包含：Companion 接收器、样例自测、AI 找错/审思路/题解/调题单、同题 AC、浏览器登录/自动提交、五平台 handle、题解社区
+
+
 ## 0.19.2
 
 - 新增 `tools/cdp-selftest.js`：headless 浏览器本地表单验证 CDP 填代码/选语言/点击提交（不会访问 OJ）

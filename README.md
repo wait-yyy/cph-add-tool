@@ -8,6 +8,8 @@
 > **CPH 已卸载**：本项目不再依赖 Competitive Programming Helper，补丁机制已移除；拉题、题面、样例自测全部由本工具完成。
 >
 > **交流群**：QQ **188241279**（问题反馈 / 使用交流 / 更新通知）
+>
+> **Marketplace**：扩展 ID `waityyy.algorithm-training-tool`（安装后仍需 clone 本仓库并用 VS Code 打开，插件会调用仓库内的 `tools/` 脚本）
 
 ## 拉题方式（推荐：直接给比赛链接）
 

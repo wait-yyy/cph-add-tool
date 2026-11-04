@@ -1191,6 +1191,39 @@ async function cmdAiAdjustPlan() {
     }
 }
 
+async function cmdCfAcList() {
+    const cpp = activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道 Codeforces 题的 .cpp 文件');
+    const res = await runNode('cf-ac.js', [cpp], '查询同题 AC 提交…', { cancellable: true });
+    const data = parseLastJson(String(res.stdout || ''));
+    if (!data || !data.ok) {
+        return vscode.window.showWarningMessage('查询失败：' + ((data && data.message) || '没有数据'));
+    }
+    if (!data.handles || !data.handles.length) {
+        return vscode.window.showInformationMessage('同题还没有 AC 提交记录');
+    }
+    const items = data.handles.map(function (h) {
+        return {
+            label: h.handle,
+            description: '#' + h.submissionId + ' · ' + (h.language || ''),
+            submissionId: h.submissionId
+        };
+    });
+    items.unshift({ label: '$(book) AI 生成题解（当前题）', action: 'editorial' });
+    items.unshift({ label: '$(link) 打开题目提交列表', action: 'list' });
+    const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: '同题 AC ' + data.count + ' 人；选择提交记录或 AI 题解'
+    });
+    if (!picked) return;
+    if (picked.action === 'editorial') return vscode.commands.executeCommand('algorithmTraining.aiEditorial');
+    if (picked.action === 'list') {
+        const base = data.gym ? ('https://codeforces.com/gym/' + data.contestId) : ('https://codeforces.com/contest/' + data.contestId);
+        return vscode.env.openExternal(vscode.Uri.parse(base + '/status/' + data.index));
+    }
+    const base = data.gym ? ('https://codeforces.com/gym/' + data.contestId) : ('https://codeforces.com/contest/' + data.contestId);
+    await vscode.env.openExternal(vscode.Uri.parse(base + '/submission/' + picked.submissionId));
+}
+
 async function cmdPullTemplate() {
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -1616,6 +1649,7 @@ function sidebarHtml() {
                 { cmd: 'algorithmTraining.aiPseudo', label: 'AI 审思路', icon: '📝', primary: true },
                 { cmd: 'algorithmTraining.aiEditorial', label: 'AI 题解', icon: '📚' },
                 { cmd: 'algorithmTraining.aiAdjustPlan', label: 'AI 调题单', icon: '🎯' },
+                { cmd: 'algorithmTraining.aiAcList', label: '同题 AC', icon: '👥' },
                 { cmd: 'algorithmTraining.aiHint', label: 'AI 提示', icon: '💡', primary: true },
                 { cmd: 'algorithmTraining.aiAsk', label: '问 AI', icon: '❓' },
                 { cmd: 'algorithmTraining.aiReview', label: 'AI 复盘', icon: '🧠' },
@@ -2254,7 +2288,8 @@ function activate(context) {
         'algorithmTraining.aiDebug': cmdAiDebug,
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
         'algorithmTraining.aiEditorial': cmdAiEditorial,
-        'algorithmTraining.aiAdjustPlan': cmdAiAdjustPlan
+        'algorithmTraining.aiAdjustPlan': cmdAiAdjustPlan,
+        'algorithmTraining.aiAcList': cmdCfAcList
     };
     Object.keys(map).forEach(function (id) {
         context.subscriptions.push(vscode.commands.registerCommand(id, map[id]));

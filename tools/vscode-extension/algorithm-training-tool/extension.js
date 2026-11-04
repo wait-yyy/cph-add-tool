@@ -1180,6 +1180,7 @@ async function cmdAiEditorial() {
                 const base = path.basename(cpp).replace(/\.(cpp|cc|cxx)$/i, '');
                 const file = path.join(dir, base + '.md');
                 fs.writeFileSync(file, '# ' + base + ' 题解（AI）\n\n' + text + '\n', 'utf8');
+                refreshCommunityIndex(dir);
                 vscode.window.showInformationMessage('AI 题解已保存到 training/community/' + base + '.md');
             }
         } catch (e) { /* ignore */ }
@@ -1285,21 +1286,35 @@ function communityDir() {
     return root ? path.join(root, 'training', 'community') : '';
 }
 
-function ensureCommunityReadme(dir) {
-    const readme = path.join(dir, 'README.md');
-    if (fs.existsSync(readme)) return readme;
+function refreshCommunityIndex(dir) {
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(readme, [
-        '# AI 题解交流社区（本地）',
-        '',
-        '这里保存 AI 生成的题解、自己的关键观察和复盘笔记。',
-        '',
-        '- 每题一个 Markdown：`<平台>-<题号>.md`',
-        '- 可以通过面板「AI 助手 → AI 题解」生成后保存到本目录',
-        '- 后续可扩展为多人共享/评论（目前先做本地资料库）',
-        ''
-    ].join('\n'), 'utf8');
+    let files = [];
+    try {
+        files = fs.readdirSync(dir).filter(function (f) { return /\.md$/i.test(f) && f.toLowerCase() !== 'readme.md'; });
+        files.sort();
+    } catch (e) { files = []; }
+    let md = '# AI 题解交流社区（本地）\n\n';
+    md += '这里保存 AI 生成的题解、关键观察和复盘笔记。\n\n';
+    md += '- 通过面板「AI 助手 → AI 题解」生成后自动保存到本目录\n';
+    md += '- 通过「同题 AC」或「AI 调题单」辅助选题/复盘\n';
+    md += '- 后续可扩展为多人共享/评论（目前先做本地资料库）\n\n';
+    if (files.length) {
+        md += '## 题解索引\n\n| 文件 | 更新时间 |\n|---|---|\n';
+        files.forEach(function (f) {
+            let mtime = '';
+            try { mtime = new Date(fs.statSync(path.join(dir, f)).mtimeMs).toISOString().slice(0, 16).replace('T', ' '); } catch (e) { /* ignore */ }
+            md += '| [' + f + '](./' + encodeURIComponent(f) + ') | ' + mtime + ' |\n';
+        });
+    } else {
+        md += '## 题解索引\n\n（还没有题解，先生成一篇 AI 题解吧）\n';
+    }
+    const readme = path.join(dir, 'README.md');
+    fs.writeFileSync(readme, md, 'utf8');
     return readme;
+}
+
+function ensureCommunityReadme(dir) {
+    return refreshCommunityIndex(dir);
 }
 
 async function cmdCommunityOpen() {

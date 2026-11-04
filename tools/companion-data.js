@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 function safeName(value, fallback) {
     const text = String(value == null ? '' : value)
@@ -139,6 +140,26 @@ function writeCompanionProblem(data, root) {
         }
         fs.writeFileSync(mdPath, md, 'utf8');
     }
+
+    try {
+        const cphDir = path.join(folder, '.cph');
+        fs.mkdirSync(cphDir, { recursive: true });
+        const md5 = crypto.createHash('md5').update(cppPath).digest('hex');
+        const cacheFile = path.join(cphDir, '.' + path.basename(cppPath) + '_' + md5 + '.prob');
+        fs.writeFileSync(cacheFile, JSON.stringify({
+            name: title,
+            group: group,
+            url: url,
+            interactive: !!(data && data.interactive),
+            memoryLimit: memoryLimitMb,
+            timeLimit: timeLimitMs,
+            tests: tests,
+            testType: 'single',
+            input: '',
+            output: '',
+            srcPath: cppPath
+        }, null, 2) + '\n', 'utf8');
+    } catch (e) { /* cache is optional */ }
 
     return {
         platform: target.platform,

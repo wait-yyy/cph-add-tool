@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.17.0
+
+- Companion 接收题目时额外写入 `.cph/.<文件名>_<md5>.prob`，`cp.ps1 samples` 和 CPH 兼容工具可直接读取
+- 题解社区增加自动索引：`training/community/README.md` 列出所有题解文件与更新时间
+- AI 题解保存后自动刷新社区索引
+
 ## 0.16.1
 
 - 文档更新：Companion 接收器、浏览器提交、AI 找错/审思路/题解/调题单、同题 AC、五平台 handle

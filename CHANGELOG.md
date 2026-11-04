@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.17.1
+
+- 新增 `tools/selftest.js` 基础自检（扩展语法/命令、Companion 写入/缓存、提交识别、样例读取），9/9 通过
+- 文档补充 Companion / 浏览器提交 / AI 功能说明
+
+
 ## 0.17.0
 
 - Companion 接收题目时额外写入 `.cph/.<文件名>_<md5>.prob`，`cp.ps1 samples` 和 CPH 兼容工具可直接读取

@@ -2,7 +2,7 @@
     "name":  "algorithm-training-tool",
     "displayName":  "Algorithm Training Tool",
     "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version":  "0.17.0",
+    "version":  "0.17.1",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",

@@ -408,10 +408,19 @@ function siblingMarkdown(cppFsPath) {
     return cppFsPath.replace(/\.(cpp|cc|cxx)$/i, '.md');
 }
 
+function extractCookieFromCurl(text) {
+    const m1 = /(?:-H|--header)\s+['"]cookie:\s*([^'"]+)['"]/i.exec(text);
+    if (m1) return m1[1];
+    const m2 = /(?:^|\s)-b\s+['"]([^'"]+)['"]/i.exec(text);
+    return m2 ? m2[1] : '';
+}
+
 function normalizeCookieText(value) {
     let text = String(value == null ? '' : value).trim();
-    const m = /(?:-H|--header|-b)\s+['"](?:cookie:\s*)?([^'"]+)['"]/i.exec(text);
-    if (m) text = m[1];
+    if (/\bcurl(\.exe)?\b/i.test(text) || /(?:^|\s)-H\s/.test(text) || /(?:^|\s)-b\s/.test(text)) {
+        const extracted = extractCookieFromCurl(text);
+        if (extracted) text = extracted;
+    }
     return text
         .replace(/\r?\n/g, ' ')
         .replace(/^\s*Cookie:\s*/i, '')
@@ -680,7 +689,11 @@ async function cmdCfLogin() {
     try {
         const file = cfCookiePath();
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, normalizeCookieText(cookie) + '\n', 'utf8');
+        const normalizedCookie = normalizeCookieText(cookie);
+        if (!normalizedCookie || normalizedCookie.indexOf('=') < 0 || /^(accept|user-agent|sec-|referer|origin):/i.test(normalizedCookie)) {
+            return vscode.window.showWarningMessage('没有识别到 Cookie：请复制「Cookie 请求头」或整段 Copy as cURL，不要只复制 Accept/User-Agent。');
+        }
+        fs.writeFileSync(file, normalizedCookie + '\n', 'utf8');
     } catch (e) {
         return vscode.window.showErrorMessage('保存 Codeforces Cookie 失败：' + e.message);
     }
@@ -735,7 +748,11 @@ async function cmdPlatformLogin(platform) {
     const file = platformCookiePath(platform);
     try {
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, normalizeCookieText(cookie) + '\n', 'utf8');
+        const normalizedCookie = normalizeCookieText(cookie);
+        if (!normalizedCookie || normalizedCookie.indexOf('=') < 0 || /^(accept|user-agent|sec-|referer|origin):/i.test(normalizedCookie)) {
+            return vscode.window.showWarningMessage('没有识别到 Cookie：请复制「Cookie 请求头」或整段 Copy as cURL，不要只复制 Accept/User-Agent。');
+        }
+        fs.writeFileSync(file, normalizedCookie + '\n', 'utf8');
     } catch (e) {
         return vscode.window.showErrorMessage('保存 ' + info.label + ' Cookie 失败：' + e.message);
     }

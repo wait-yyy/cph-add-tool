@@ -16,10 +16,19 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const COOKIE_FILE = path.join(ROOT, 'training', 'cf-cookies.txt');
 
+function extractCookieFromCurl(text) {
+    const m1 = /(?:-H|--header)\s+['"]cookie:\s*([^'"]+)['"]/i.exec(text);
+    if (m1) return m1[1];
+    const m2 = /(?:^|\s)-b\s+['"]([^'"]+)['"]/i.exec(text);
+    return m2 ? m2[1] : '';
+}
+
 function normalizeCookie(value) {
     let text = String(value == null ? '' : value).trim();
-    const m = /(?:-H|--header|-b)\s+['"](?:cookie:\s*)?([^'"]+)['"]/i.exec(text);
-    if (m) text = m[1];
+    if (/\bcurl(\.exe)?\b/i.test(text) || /(?:^|\s)-H\s/.test(text) || /(?:^|\s)-b\s/.test(text)) {
+        const extracted = extractCookieFromCurl(text);
+        if (extracted) text = extracted;
+    }
     return text
         .replace(/\r?\n/g, ' ')
         .replace(/^\s*Cookie:\s*/i, '')

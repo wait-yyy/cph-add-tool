@@ -40,6 +40,72 @@ function readHandle() {
     return '';
 }
 
+const PLATFORM_LOGIN = {
+    codeforces: { label: 'Codeforces', host: 'codeforces.com', loginUrl: 'https://codeforces.com/enter' },
+    luogu: { label: '洛谷', host: 'www.luogu.com.cn', loginUrl: 'https://www.luogu.com.cn/auth/login' },
+    nowcoder: { label: '牛客', host: 'ac.nowcoder.com', loginUrl: 'https://ac.nowcoder.com/login' },
+    atcoder: { label: 'AtCoder', host: 'atcoder.jp', loginUrl: 'https://atcoder.jp/login' }
+};
+
+function platformCookiePath(platform) {
+    const root = workspaceRoot();
+    if (!root) return '';
+    if (platform === 'codeforces') return path.join(root, 'training', 'cf-cookies.txt');
+    return path.join(root, 'training', 'cookies.' + platform + '.txt');
+}
+
+function accountDataPath() {
+    const root = workspaceRoot();
+    return root ? path.join(root, 'training', 'accounts.json') : '';
+}
+
+function readAccounts() {
+    const file = accountDataPath();
+    if (!file) return {};
+    try {
+        if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8')) || {};
+    } catch (e) { /* ignore */ }
+    return {};
+}
+
+function writeAccount(platform, nickname) {
+    const file = accountDataPath();
+    if (!file) return;
+    const data = readAccounts();
+    data[platform] = { nickname: String(nickname || ''), at: new Date().toISOString() };
+    try {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    } catch (e) { /* ignore */ }
+}
+
+function accountLineHtml() {
+    const accounts = readAccounts();
+    const handle = readHandle();
+    const defs = [
+        ['codeforces', 'CF', handle],
+        ['luogu', '洛谷', ''],
+        ['nowcoder', '牛客', ''],
+        ['atcoder', 'AtCoder', '']
+    ];
+    return defs.map(function (d) {
+        let nickname = accounts[d[0]] && accounts[d[0]].nickname ? String(accounts[d[0]].nickname) : '';
+        if (!nickname && d[0] === 'codeforces') nickname = handle;
+        return escapeHtml(d[1]) + '：' + (nickname ? '<code>' + escapeHtml(nickname) + '</code>' : '<span class="muted">未登录</span>');
+    }).join('　');
+}
+
+function parseLastJson(text) {
+    const lines = String(text || '').split(/\r?\n/).filter(function (l) { return l.trim(); });
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.charAt(0) === '{') {
+            try { return JSON.parse(line); } catch (e) { /* ignore */ }
+        }
+    }
+    return null;
+}
+
 function readPlan() {
     const root = workspaceRoot();
     if (!root) return null;
@@ -572,6 +638,92 @@ async function cmdCfLogout() {
     vscode.window.showInformationMessage('已清除 Codeforces 登录 Cookie');
 }
 
+async function cmdPlatformLogin(platform) {
+    const info = PLATFORM_LOGIN[platform];
+    if (!info) return;
+    const action = await vscode.window.showInformationMessage(
+        info.label + ' 登录：先在浏览器登录，然后复制该网站的 Cookie 请求头。',
+        '打开登录页', '粘贴 Cookie'
+    );
+    if (action === '打开登录页') {
+        try { await vscode.env.openExternal(vscode.Uri.parse(info.loginUrl)); } catch (e) { /* ignore */ }
+        return;
+    }
+    if (action !== '粘贴 Cookie') return;
+    const cookie = await vscode.window.showInputBox({
+        prompt: '粘贴 ' + info.host + ' 的 Cookie 请求头（F12 → Network → 任意请求 → Request Headers → Cookie，整行复制）',
+        password: true,
+        ignoreFocusOut: true,
+        validateInput: function (s) { return String(s || '').trim() ? null : '不能为空'; }
+    });
+    if (!cookie) return;
+    const file = platformCookiePath(platform);
+    try {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, String(cookie).trim() + '\n', 'utf8');
+    } catch (e) {
+        return vscode.window.showErrorMessage('保存 ' + info.label + ' Cookie 失败：' + e.message);
+    }
+    const result = await runNode('account-login.js', [platform], '检查 ' + info.label + ' 登录…');
+    const data = parseLastJson(String(result.stdout || ''));
+    if (!data || !data.ok) {
+        const detail = data && data.detail ? data.detail : (String(result.stderr || '').trim().split(/\r?\n/)[0] || 'Cookie 无效');
+        return vscode.window.showWarningMessage(info.label + ' 登录校验失败：' + detail + '（Cookie 已保存，可稍后重试）');
+    }
+    let nickname = String(data.nickname || '').trim();
+    if (!nickname) {
+        const manual = await vscode.window.showInputBox({
+            prompt: info.label + ' 未自动读取到昵称，可手动填写（留空则显示“已登录”）',
+            ignoreFocusOut: true
+        });
+        nickname = manual ? manual.trim() : '';
+    }
+    writeAccount(platform, nickname || '已登录');
+    if (platform === 'codeforces' && data.nickname) {
+        try {
+            const handleFile = path.join(workspaceRoot(), 'training', 'cf-handle.txt');
+            fs.mkdirSync(path.dirname(handleFile), { recursive: true });
+            fs.writeFileSync(handleFile, String(data.nickname).trim() + '\n', 'utf8');
+        } catch (e) { /* ignore */ }
+    }
+    if (sidebarProvider) sidebarProvider.refresh();
+    vscode.window.showInformationMessage(info.label + ' 登录成功：' + (nickname || '已登录'));
+}
+
+async function cmdAccountStatus() {
+    const platforms = Object.keys(PLATFORM_LOGIN);
+    const items = platforms.map(function (p) {
+        const acc = readAccounts()[p];
+        const nickname = acc && acc.nickname ? acc.nickname : '';
+        return { label: PLATFORM_LOGIN[p].label, description: nickname || '未登录', platform: p };
+    });
+    items.push({ label: '检查全部平台', description: '依次校验已保存的 Cookie', platform: 'all' });
+    const picked = await vscode.window.showQuickPick(items, { placeHolder: '选择要检查的账号' });
+    if (!picked) return;
+    const targets = picked.platform === 'all' ? platforms : [picked.platform];
+    const results = [];
+    for (let i = 0; i < targets.length; i++) {
+        const p = targets[i];
+        const file = platformCookiePath(p);
+        let hasCookie = false;
+        try { hasCookie = !!String(fs.readFileSync(file, 'utf8')).trim(); } catch (e) { hasCookie = false; }
+        if (!hasCookie) {
+            results.push(PLATFORM_LOGIN[p].label + '：未登录');
+            continue;
+        }
+        const res = await runNodeQuiet('account-login.js', [p]);
+        const data = parseLastJson(String(res.stdout || ''));
+        if (data && data.ok) {
+            writeAccount(p, data.nickname || '已登录');
+            results.push(PLATFORM_LOGIN[p].label + '：' + (data.nickname || '已登录'));
+        } else {
+            results.push(PLATFORM_LOGIN[p].label + '：' + (data && data.detail ? data.detail : '登录失效'));
+        }
+    }
+    if (sidebarProvider) sidebarProvider.refresh();
+    vscode.window.showInformationMessage(results.join('　|　'));
+}
+
 async function cmdPullTemplate() {
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -1002,11 +1154,15 @@ function sidebarHtml() {
             ]
         },
         {
-            title: '设置 / 维护',
+            title: '账号登录',
             items: [
-                { cmd: 'cfTraining.cfLogin', label: '🍪 设置 CF 登录 Cookie（Gym/私有比赛）' },
-                { cmd: 'cfTraining.cfLoginCheck', label: '🔎 检查 CF 登录状态' },
-                { cmd: 'cfTraining.cfLogout', label: '🚪 清除 CF 登录 Cookie' },
+                { cmd: 'cfTraining.loginCodeforces', label: '🔐 登录 Codeforces', primary: true },
+                { cmd: 'cfTraining.loginLuogu', label: '🔐 登录 洛谷' },
+                { cmd: 'cfTraining.loginNowcoder', label: '🔐 登录 牛客' },
+                { cmd: 'cfTraining.loginAtcoder', label: '🔐 登录 AtCoder' },
+                { cmd: 'cfTraining.accountStatus', label: '🔎 检查账号状态' },
+                { cmd: 'cfTraining.cfLoginCheck', label: '✅ 检查 CF Cookie' },
+                { cmd: 'cfTraining.cfLogout', label: '🚪 清除 CF Cookie' },
                 { cmd: 'cfTraining.setHandle', label: '👤 设置 CF handle' },
                 { cmd: 'cfTraining.openDoc', label: '❓ 打开训练手册' }
             ]
@@ -1046,7 +1202,7 @@ function sidebarHtml() {
         'button.small { padding: 5px 8px; font-size: 12px; }\n' +
         '.hint { opacity: .6; margin-top: 14px; font-size: 12px; line-height: 1.5; }\n' +
         '</style></head><body>\n' +
-        '<div class="meta">handle：<code>' + escapeHtml(handle || '（未设置）') + '</code>　AI：<code>' + aiText + '</code></div>\n' +
+        '<div class="meta">handle：<code>' + escapeHtml(handle || '（未设置）') + '</code>　AI：<code>' + aiText + '</code><br>账号：' + accountLineHtml() + '</div>\n' +
         planSectionHtml() +
         body + '\n' +
         '<div class="hint">题面 / 编译按钮需要先在编辑器打开对应 .cpp 文件。题单里的题目点一下会在浏览器打开。</div>\n' +
@@ -1522,6 +1678,11 @@ function activate(context) {
         'cfTraining.pullContest': cmdPullContest,
         'cfTraining.pullProblem': cmdPullProblem,
         'cfTraining.cfLogin': cmdCfLogin,
+        'cfTraining.loginCodeforces': function () { return cmdPlatformLogin('codeforces'); },
+        'cfTraining.loginLuogu': function () { return cmdPlatformLogin('luogu'); },
+        'cfTraining.loginNowcoder': function () { return cmdPlatformLogin('nowcoder'); },
+        'cfTraining.loginAtcoder': function () { return cmdPlatformLogin('atcoder'); },
+        'cfTraining.accountStatus': cmdAccountStatus,
         'cfTraining.cfLoginCheck': cmdCfLoginCheck,
         'cfTraining.cfLogout': cmdCfLogout,
         'cfTraining.pullTemplate': cmdPullTemplate,

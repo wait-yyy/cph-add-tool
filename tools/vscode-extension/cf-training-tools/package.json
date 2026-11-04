@@ -2,7 +2,7 @@
     "name":  "cf-training-tools",
     "displayName":  "CF Training Tools",
     "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version":  "0.7.7",
+    "version":  "0.8.0",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",
@@ -172,6 +172,31 @@
                                          {
                                              "command":  "cfTraining.sampleTests",
                                              "title":  "样例自测（计分）",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "登录 Codeforces（Cookie）",
+                                             "command":  "cfTraining.loginCodeforces",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "登录 洛谷（Cookie）",
+                                             "command":  "cfTraining.loginLuogu",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "登录 牛客（Cookie）",
+                                             "command":  "cfTraining.loginNowcoder",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "登录 AtCoder（Cookie）",
+                                             "command":  "cfTraining.loginAtcoder",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "检查各平台账号状态",
+                                             "command":  "cfTraining.accountStatus",
                                              "category":  "CF 训练"
                                          }
                                      ],

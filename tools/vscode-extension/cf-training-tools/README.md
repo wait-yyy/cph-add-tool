@@ -68,6 +68,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 ## Codeforces Gym / 私有比赛（登录）
 
 Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / 维护」→「🍪 设置 CF 登录 Cookie」，粘贴浏览器里 `codeforces.com` 请求的 **Cookie** 整行即可（会自动验证并显示 handle）。Cookie 只存本机 `training/cf-cookies.txt`，已 gitignore；过期后重新设置，或用「🚪 清除 CF 登录 Cookie」退出。
+## 账号登录
+
+活动栏「CF 训练」→「账号登录」：
+
+- **登录 Codeforces / 洛谷 / 牛客 / AtCoder**：点按钮 → 「打开登录页」先在浏览器登录 → 回来点「粘贴 Cookie」→ 粘贴对应网站的 Cookie 请求头
+- 登录成功后自动读取昵称并显示在面板顶部「账号：」一行；CF 同时会更新 handle
+- 支持「检查账号状态」，批量校验已保存的 Cookie
+- Cookie 只保存在本机 `training/cf-cookies.txt` / `training/cookies.<platform>.txt`，已 gitignore
 ## 样例自测（计分）
 
 活动栏「CF 训练」→「样例自测」块：读取当前题目的 `.cph` 缓存或 `<题号>.json`，点「▶ 运行全部测试」编译并逐题运行，显示**样例/自定义通过数、总得分、百分比**；每个测试点可直接编辑输入/期望输出、单测运行并保存。每个测试点都可以**实时编辑**输入/期望输出：点「▶ 运行此测试」只跑这一条，点「▶ 运行全部测试」会先自动保存所有编辑再跑（样例修改存 `<题号>.sample-overrides.json`，自定义存 `<题号>.custom-tests.json`）。打开/切换 `.cpp` 时面板自动刷新，不需要手动「重新读取」。

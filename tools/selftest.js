@@ -35,7 +35,7 @@ function main() {
     let pkg = null;
     try { pkg = JSON.parse(fs.readFileSync(path.join(EXT, 'package.json'), 'utf8')); } catch (e) { /* ignore */ }
     check('package name', pkg && pkg.name === 'algorithm-training-tool', pkg && pkg.name);
-    check('package commands >= 43', pkg && Array.isArray(pkg.contributes.commands) && pkg.contributes.commands.length >= 43,
+    check('package commands >= 45', pkg && Array.isArray(pkg.contributes.commands) && pkg.contributes.commands.length >= 45,
         pkg && pkg.contributes.commands && pkg.contributes.commands.length);
 
     // companion data writer
@@ -63,6 +63,16 @@ function main() {
     } finally {
         try { fs.rmSync(testRoot, { recursive: true, force: true }); } catch (e) { /* ignore */ }
     }
+
+    // browser support (no page navigation; only executable/CDP profile checks)
+    const bl = run('node', [path.join(ROOT, 'tools', 'browser-login.js'), '--check']);
+    let blData = null;
+    try { blData = JSON.parse(String(bl.stdout || '').trim().split(/\r?\n/).pop()); } catch (e) { /* ignore */ }
+    check('browser-login finds Edge/Chrome', blData && blData.ok === true, blData && blData.browser);
+    const bs = run('node', [path.join(ROOT, 'tools', 'browser-submit.js'), '--check']);
+    let bsData = null;
+    try { bsData = JSON.parse(String(bs.stdout || '').trim().split(/\r?\n/).pop()); } catch (e) { /* ignore */ }
+    check('browser-submit check mode', bsData && bsData.ok === true, bsData && bsData.browser);
 
     // submit dry-run (no network, uses saved metadata)
     const cpp = path.join(ROOT, 'luogu', 'contest367096', 'B2175.cpp');

@@ -65,9 +65,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 > Codeforces 题面页有 Cloudflare 防护，`cph-statement.js` 会在 403 时自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面；Gym/私有比赛仍需要登录。
 
-## Codeforces Gym / 私有比赛（登录）
+## Competitive Companion 接收器（推荐，CF Gym/反爬）
 
-Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / 维护」→「🍪 设置 CF 登录 Cookie」，粘贴浏览器里 `codeforces.com` 请求的 **Cookie** 整行即可（会自动验证并显示 handle）。Cookie 只存本机 `training/cf-cookies.txt`，已 gitignore；过期后重新设置，或用「🚪 清除 CF 登录 Cookie」退出。
+CF 现在对脚本请求返回 Cloudflare 403（`Just a moment...`），Cookie 不稳定。推荐用浏览器：
+
+1. 浏览器安装 [Competitive Companion](https://github.com/jmerle/competitive-companion)
+2. 插件启动本地接收器（默认 `127.0.0.1:27121`）
+3. 浏览器打开题目页 → 点 Companion 的「+」
+4. 自动生成 `<题号>.cpp/.json/.md`
+
+面板「快速开始 → Companion 接收」可看状态；端口设置 `algorithm-training-tool.companion.port`。
+Gym/私有比赛推荐用这个方式，不需要把 Cookie 交给脚本。
 ## 提交到 OJ
 
 样例自测面板顶部新增 **🚀 提交到 OJ**：
@@ -75,7 +83,7 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 - 自动读取当前题的 `<题号>.json` / `.cph` 缓存里的题目链接，判断 OJ
 - 提交前会保存当前文件（含未保存修改）
 - 支持 **Codeforces（正赛/Gym）、洛谷、AtCoder** 自动提交；牛客暂不支持自动提交
-- 需要先在「账号登录」保存对应平台的 Cookie；未登录会提示去登录
+- 自动提交需要对应平台 Cookie；CF/洛谷被反爬拦截时建议用 **🌐 浏览器提交（复制代码）**：自动复制当前代码并打开提交页，在网页粘贴提交
 - 提交成功显示提交记录链接，可在浏览器打开
 ## 账号登录
 
@@ -85,6 +93,8 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 - 登录成功后自动读取昵称并显示在面板顶部「账号：」一行；CF 同时会更新 handle
 - 支持「检查账号状态」批量校验已保存的 Cookie；「清除平台 Cookie」可按平台或全部清除；「打开 Cookie 目录」直达 training
 - Cookie 只保存在本机 `training/cf-cookies.txt` / `training/cookies.<platform>.txt`，已 gitignore
+- 注意：CF 当前对 curl 请求有 Cloudflare 拦截，Cookie 登录/自动抓取可能 403；Gym 请优先用 Companion 接收器
+- 另外支持 **设置各平台 handle**（CF/洛谷/牛客/LeetCode/AtCoder，存 `training/handles.json`），用于公开主页/同题 AC 查询
 ## 样例自测（计分）
 
 活动栏「算法训练」→「样例自测」块：读取当前题目的 `.cph` 缓存或 `<题号>.json`，点「▶ 运行全部测试」编译并逐题运行，显示**样例/自定义通过数、总得分、百分比**；每个测试点可直接编辑输入/期望输出、单测运行并保存。每个测试点都可以**实时编辑**输入/期望输出：点「▶ 运行此测试」只跑这一条，点「▶ 运行全部测试」会先自动保存所有编辑再跑（样例修改存 `<题号>.sample-overrides.json`，自定义存 `<题号>.custom-tests.json`）。打开/切换 `.cpp` 时面板自动刷新，不需要手动「重新读取」。

@@ -12,7 +12,7 @@
 ## 拉题方式（推荐：直接给比赛链接）
 
 
-不再依赖 Competitive Companion：把**比赛链接**直接交给工具，自动把整场题面/样例扒下来，并给每道题生成 cpp + 样例缓存：
+也可以直接把**比赛链接**交给工具，自动把整场题面/样例扒下来，并给每道题生成 cpp + 样例缓存；如果 CF/洛谷对脚本请求 403（Cloudflare/反爬），改用下面的 **Competitive Companion 接收器**。
 
 ```powershell
 node tools\pull-contest.js https://codeforces.com/contest/2278
@@ -32,7 +32,16 @@ node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
 - `.cph`：CPH 样例缓存（`cp.ps1 samples` / CPH 按钮可直接跑样例）
 - 整场还有 `contest.json`：平台、比赛名、题目列表、模板、生成时间
 
-CPH（Competitive Companion）仍然可用，只是不再是主流程：需要"浏览器一键拉题"时再用，补丁生成的目录/缓存格式与 `pull-contest.js` 一致。
+## Competitive Companion 接收器（推荐：浏览器一键拉题）
+
+CF 现在会对 curl 返回 Cloudflare 403（`Just a moment...`），Cookie 也不稳定。推荐用真实浏览器解析：
+
+1. 浏览器安装 [Competitive Companion](https://github.com/jmerle/competitive-companion)
+2. VS Code 安装本插件并 Reload Window（自动启动接收器，默认端口 **27121**）
+3. 浏览器打开题目页（CF Gym / 正赛 / AtCoder / 洛谷 / 牛客）→ 点 Companion 的「+」
+4. 工具自动生成 `<题号>.cpp`（按 new.cpp 模板）、`<题号>.json`（样例，自测面板直接读）、`<题号>.md`（标题/限制/样例）
+
+面板「快速开始 → Companion 接收」可查看接收器状态；端口可用设置 `algorithm-training-tool.companion.port` 修改。
 
 ## 初始模板（可配置）
 
@@ -43,18 +52,11 @@ CPH（Competitive Companion）仍然可用，只是不再是主流程：需要"�
 3. `training/pull-config.json`（复制 `training/pull-config.example.json`）：`{ "template": "new.cpp" }`
 4. 默认 `new.cpp`
 
-## Codeforces Gym / 私有比赛（登录）
+## Codeforces Gym / 私有比赛
 
-Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器登录态（Cookie），不用把账号密码交给脚本。
+推荐：浏览器登录并打开 Gym 题目页，用 **Competitive Companion 的「+」**直接接收（见上一节）。浏览器里已登录，不需要把 Cookie 交给脚本。
 
-1. 浏览器登录 `codeforces.com`，并**报名**要做的 Gym/私有比赛
-2. 面板「设置 / 维护」→ **🍪 设置 CF 登录 Cookie**（或命令面板搜 `算法训练: 设置 CF 登录 Cookie`）
-3. F12 → Network → 随便点一个 `codeforces.com` 请求 → Request Headers → 复制 **Cookie** 整行（要包含 `JSESSIONID`、`cf_clearance` 等全部字段）
-4. 粘贴后会自动验证，成功后显示你的 handle；之后抓取整场/单题 Gym 会自动带上登录态
-5. Cookie 过期后重新设置；面板「🚪 清除 CF 登录 Cookie」可退出
-
-> Cookie 等同于登录态，**不要分享/提交**。它只保存在本机 `training/cf-cookies.txt`（已在 `.gitignore` 中）。
-## 功能
+旧 Cookie 登录入口仍保留（面板「账号 → 登录 Codeforces」），但 CF 当前对 curl 做 Cloudflare 拦截，Cookie 通常无法通过；不要再依赖它来抓 Gym。
 
 - **样例自测（计分面板）**：活动栏「样例自测」块读取 `.cph`/`<题号>.json` 样例；运行后显示通过数/得分、逐题耗时、PASS/FAIL 与期望/实际输出对比；**测试点可实时编辑**（输入/期望输出直接改；点「运行此测试」或「运行全部测试」会自动保存并运行；样例修改存 `<题号>.sample-overrides.json`，自定义测试存 `<题号>.custom-tests.json`，得分一起统计）
 - **自动建目录与题面**：整场抓取自动建 `codeforces/<比赛>/`，生成中英对照 `<题号>.md` 并自动分屏预览
@@ -66,6 +68,12 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
   - AI 提示：先读当前编辑器代码（含未保存修改）做「代码体检」，再按级别给提示（方向 → 思路 → 伪代码，不直接给完整代码）
   - 问 AI：带题面 + 当前代码提问
   - AI 复盘：赛后逐题分析卡点、关键观察、总结，生成 `review.ai.md`
+  - AI 找错：题面 + 当前代码 + 错误症状 → 最可能 bug、定位、验证方法、最小修改建议
+  - AI 审思路：输入伪代码/口胡，判断可行性、反例、复杂度、能否直接写
+  - AI 题解：根据题面生成题意/关键观察/算法/正确性/复杂度/易错点；可保存到 `training/community/`
+  - AI 调题单：对话式修改难度/分类/题量，预览后应用并备份
+  - 同题 AC：查询 CF 同题其他人的 AC 提交记录，可打开提交页或生成 AI 题解
+- **提交方式**：支持自动提交接口，以及**浏览器提交兜底**（复制代码 + 打开提交页，适合被 Cloudflare 拦截时使用）
 - **训练工具**
   - 周题单：按 CF 弱项 tag + 难度，从 Codeforces / AtCoder / 洛谷三平台选题（`training/plan.md`）
   - 重做队列：AC 但错 ≥3 次的题（`training/redo.md`）
@@ -73,7 +81,7 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 - **本地做题工具**
   - `tools\cp.ps1`：编译（gnu++23 + O2 + 大栈）、跑样例、手写输入、对拍
   - `tools\mkdata.ps1`：造题数据生成与校验
-- **VS Code 面板**：活动栏「算法训练」+ 状态栏菜单，所有操作一键触发；支持 AI 配置、样例自测、提交到 OJ、题单展示、**Codeforces / 洛谷 / 牛客 / AtCoder 账号登录**（登录后显示昵称；Gym/私有比赛需要 CF Cookie，公开比赛不需要）
+- **VS Code 面板**：活动栏「算法训练」+ 状态栏菜单；支持样例自测（含自定义/单测/计分）、AI 找错/审思路/题解/调题单、同题 AC、题解社区、浏览器提交、五平台 handle 设置、Companion 接收器
 
 ## 环境要求
 
@@ -81,8 +89,8 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 - VS Code（含内置 Markdown 预览）
 - Node.js（`node` 在 PATH 中）
 - g++ 与 gdb：推荐 [MSYS2 UCRT64](https://www.msys2.org/)（默认路径 `C:\msys64\ucrt64\bin`）
-- Windows 自带 `curl.exe`（抓题面用）
-- 浏览器插件 [Competitive Companion](https://github.com/jmerle/competitive-companion) + VS Code 扩展 [Competitive Programming Helper](https://marketplace.visualstudio.com/items?itemName=DivyanshuAgrawal.competitive-programming-helper)
+- Windows 自带 `curl.exe`（公开接口/题面抓取用）
+- 浏览器插件 [Competitive Companion](https://github.com/jmerle/competitive-companion)（推荐：CF Gym/反爬页面用浏览器解析）
 
 ## 快速开始
 
@@ -101,7 +109,9 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 
    然后在 VS Code 里 `Ctrl+Shift+P` → `Developer: Reload Window`。
 
-3. **样例自测**：打开题目 `.cpp` 后，活动栏「算法训练」→「样例自测」块会读取样例；点「▶ 运行全部样例」显示通过数、得分和逐题 PASS/FAIL（Gym 需先设置 Cookie）。4. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `算法训练`，或编辑 `training/ai-config.json`：
+3. **拉题**：能直接访问的公开比赛用面板「抓取整场比赛」；CF Gym/被 403 的页面用浏览器点 Companion 的「+」。
+4. **样例自测**：打开题目 `.cpp` 后，活动栏「算法训练」→「样例自测」块读取 `.json`/`.cph` 样例，点「▶ 运行全部测试」看通过数/得分。
+5. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `算法训练`，或编辑 `training/ai-config.json`：
 
    ```json
    { "baseUrl": "https://api.deepseek.com", "apiKey": "sk-...", "model": "deepseek-flash" }

@@ -28,25 +28,6 @@ function fetchPage(url) {
     return execFileSync('curl.exe', args, { maxBuffer: 30 * 1024 * 1024, timeout: 30000, windowsHide: true }).toString('utf8');
 }
 
-function fetchApi() {
-    const args = [
-        '-sS', '--max-time', '25', '--compressed',
-        '-A', UA,
-        '-H', 'Accept: application/json,text/plain,*/*',
-        '-H', 'Cookie: ' + auth.readCookie(),
-        'https://codeforces.com/api/contest.standings?contestId=106648'
-    ];
-    return execFileSync('curl.exe', args, { maxBuffer: 30 * 1024 * 1024, timeout: 30000, windowsHide: true }).toString('utf8');
-}
-
-function readSavedHandle() {
-    try {
-        return String(fs.readFileSync(path.join(path.dirname(auth.COOKIE_FILE), 'cf-handle.txt'), 'utf8')).trim();
-    } catch (e) {
-        return '';
-    }
-}
-
 const cookie = auth.readCookie();
 if (!cookie) {
     console.error('未配置 Codeforces Cookie：' + auth.COOKIE_FILE);
@@ -59,23 +40,18 @@ try {
     const html = fetchPage('https://codeforces.com/settings/general');
     const m1 = /handle\s*=\s*"([^"]+)"/i.exec(html);
     const m2 = /href="\/profile\/([A-Za-z0-9_.\-]+)"/i.exec(html);
-    handle = (m1 && m1[1]) || (m2 && m2[1]) || '';
-} catch (e) {
-    // settings 页被 Cloudflare 拦截时，改用需要登录的 Gym API 验证
-}
-
-if (!handle) {
-    try {
-        const data = JSON.parse(fetchApi());
-        if (data && data.status === 'OK') {
-            handle = readSavedHandle();
-            console.log('OK handle=' + handle);
-            process.exit(0);
-        }
-    } catch (e) {
-        // ignore, fall through
+    const handle = (m1 && m1[1]) || (m2 && m2[1]) || '';
+    if (!handle) {
+        console.error('请求成功，但没有解析到登录 handle（Cookie 可能不完整）。');
+        process.exit(1);
     }
-    console.error('登录检查失败：Cookie 无效/已过期，或 Cloudflare 拦截（需包含 cf_clearance，并与浏览器 User-Agent 一致）。');
+    console.log('OK handle=' + handle);
+} catch (e) {
+    const detail = String((e && e.stderr) || (e && e.message) || e);
+    if (/403|Just a moment|challenge/i.test(detail)) {
+        console.error('Cloudflare 403：Codeforces 对脚本请求启用了 JS 挑战，这不是账号/Cookie 错误。浏览器能打开，但 curl 被拦截。');
+    } else {
+        console.error('登录检查失败：' + detail.split(/\r?\n/)[0]);
+    }
     process.exit(1);
 }
-console.log('OK handle=' + handle);

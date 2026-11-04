@@ -1,5 +1,10 @@
 # 更新日志
 
+## 0.9.8
+
+- 明确区分 Cloudflare 403 和 Cookie 错误：CF 现在对 curl 直接返回 JS 挑战（匿名请求也一样），Cookie 登录检查会提示「Cloudflare 403，不是账号错误」
+- 移除错误的 CF API 兜底（官方 API 需要 apiKey/apiSig，Cookie 不能验证 Gym API）
+
 ## 0.9.7
 
 - 从 Copy as cURL 中同时提取浏览器 User-Agent 保存到 `training/cf-ua.txt`，CF 登录检查/请求使用与浏览器一致的 UA（cf_clearance 与 UA 绑定，UA 不一致会 403）

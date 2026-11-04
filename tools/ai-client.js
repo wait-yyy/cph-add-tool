@@ -45,6 +45,8 @@ function parseArgs(argv) {
         else if (a === '--question') { flags.question = argv[++i]; }
         else if (a === '--error') { flags.error = argv[++i]; }
         else if (a === '--pseudo') { flags.pseudo = argv[++i]; }
+        else if (a === '--plan') { flags.plan = argv[++i]; }
+        else if (a === '--request') { flags.request = argv[++i]; }
         else if (a.indexOf('--') === 0) { /* ignore unknown flag */ }
         else { pos.push(a); }
     }
@@ -304,6 +306,41 @@ async function cmdEditorial(flags) {
     return 0;
 }
 
+async function cmdPlanAdjust(flags) {
+    const planFile = flags.plan ? path.resolve(flags.plan) : path.join(ROOT, 'training', 'plan.json');
+    const request = String(flags.request || '').trim();
+    if (!request) { console.error('plan-adjust 需要 --request "修改要求"'); return 2; }
+    const planText = readText(planFile, 12000);
+    if (!planText) { console.error('读不到题单: ' + planFile); return 1; }
+    let plan = null;
+    try { plan = JSON.parse(planText); } catch (e) { console.error('题单 JSON 无效: ' + planFile); return 1; }
+    const out = await ai.chat([
+        {
+            role: 'system',
+            content: '你是算法竞赛训练计划助手。用户会给你当前周题单 JSON 和修改要求，你要返回修改后的题单 JSON（不要 Markdown 代码块、不要解释）。\n' +
+                '格式必须为：{"rating":..., "weakTags":[...], "generated":"YYYY-MM-DD HH:mm", "redoCount":数字, "problems":[{"platform":"Codeforces|AtCoder|Luogu|Nowcoder","rating":"1800","title":"题号 — 标题","url":"https://...","tags":"tag1, tag2"}]}。\n' +
+                '要求：\n' +
+                '1. 只根据用户要求调整难度/分类/题目数量/顺序；保留原题单中合法的题目对象，尽量不要编造 URL。\n' +
+                '2. 如果用户要求新增题目，只使用你确定真实存在的题目 URL（Codeforces 形如 https://codeforces.com/contest/<id>/problem/<index> 或 /gym/<id>/problem/<index>；AtCoder /contests/<contest>/tasks/<task>；洛谷 https://www.luogu.com.cn/problem/<pid>），不确定就不要加。\n' +
+                '3. 用户没有要求改的字段保持不变。\n' +
+                '4. 输出必须是合法 JSON。'
+        },
+        { role: 'user', content: '## 当前题单 JSON\n\n' + planText + '\n\n## 修改要求\n\n' + request }
+    ], { temperature: 0.2 });
+    let text = String(out || '').trim();
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    try {
+        const parsed = JSON.parse(text);
+        if (!parsed || !Array.isArray(parsed.problems)) throw new Error('缺少 problems 数组');
+        console.log(JSON.stringify(parsed));
+        return 0;
+    } catch (e) {
+        console.error('AI 返回的题单 JSON 无效：' + (e && e.message ? e.message : e));
+        console.error(text.slice(0, 500));
+        return 1;
+    }
+}
+
 async function main() {
     const parsed = parseArgs(process.argv.slice(2));
     const flags = parsed.flags;
@@ -324,6 +361,7 @@ async function main() {
     if (cmd === 'debug') return cmdDebug(flags);
     if (cmd === 'pseudocode') return cmdPseudocode(flags);
     if (cmd === 'editorial') return cmdEditorial(flags);
+    if (cmd === 'plan-adjust') return cmdPlanAdjust(flags);
     usage();
     return 2;
 }

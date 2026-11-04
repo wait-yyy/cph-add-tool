@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.13.0
+
+- 新增 **AI 调题单**：输入要求（难度/分类/题量/去掉某 tag），AI 返回修改后的题单 JSON；面板可预览，确认后应用并备份 `training/plan.backup.json`
+- 新增 `ai-client.js plan-adjust` 模式（严格 JSON 输出、校验 problems/URL）
+- 题单卡片/面板保持原样；应用后自动刷新
+
 ## 0.12.0
 
 - 新增 AI 训练功能：

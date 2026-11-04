@@ -1130,6 +1130,67 @@ async function cmdAiEditorial() {
     await runAiMarkdown('editorial', ['--md', md], 'AI 生成题解中…', 'ai-editorial.md');
 }
 
+function planToMarkdown(plan) {
+    const problems = Array.isArray(plan.problems) ? plan.problems : [];
+    let md = '# 周题单\n\n';
+    md += '- 生成时间：' + (plan.generated || new Date().toISOString().slice(0, 16).replace('T', ' ')) + '\n';
+    if (plan.rating) md += '- 当前 rating：' + plan.rating + '\n';
+    if (plan.weakTags && plan.weakTags.length) md += '- 弱项：' + plan.weakTags.join(' / ') + '\n';
+    md += '\n| # | 平台 | 难度 | 题目 | 标签 |\n|---|---|---|---|---|\n';
+    problems.forEach(function (p, i) {
+        const title = '[' + String(p.title || '').replace(/\]/g, '\\]') + '](' + String(p.url || '') + ')';
+        md += '| ' + (i + 1) + ' | ' + (p.platform || '') + ' | ' + (p.rating || '') + ' | ' + title + ' | ' + (p.tags || '') + ' |\n';
+    });
+    return md;
+}
+
+async function cmdAiAdjustPlan() {
+    const root = workspaceRoot();
+    if (!root) return;
+    const planPath = path.join(root, 'training', 'plan.json');
+    if (!fs.existsSync(planPath)) return vscode.window.showWarningMessage('还没有 training/plan.json，先生成周题单');
+    const request = await vscode.window.showInputBox({
+        prompt: '告诉 AI 怎么调题单（例如：难度降到 1500 左右，多来点 dp，去掉 binary search，保留 5 题）',
+        ignoreFocusOut: true,
+        validateInput: function (s) { return String(s || '').trim() ? null : '不能为空'; }
+    });
+    if (!request) return;
+    const res = await runNode('ai-client.js', ['plan-adjust', '--plan', planPath, '--request', request], 'AI 调整题单中…', { cancellable: true });
+    if (res.code !== 0) {
+        const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || 'AI 调用失败';
+        return vscode.window.showErrorMessage('AI 调整题单失败：' + first);
+    }
+    let plan = null;
+    try { plan = JSON.parse(String(res.stdout || '').trim()); } catch (e) { plan = null; }
+    if (!plan || !Array.isArray(plan.problems) || !plan.problems.length) {
+        return vscode.window.showErrorMessage('AI 返回的题单无效（没有 problems）');
+    }
+    plan.generated = plan.generated || (new Date().toISOString().slice(0, 16).replace('T', ' '));
+    plan.problems = plan.problems.filter(function (p) {
+        return p && p.title && p.url && /^https?:\/\//i.test(String(p.url));
+    });
+    if (!plan.problems.length) return vscode.window.showErrorMessage('AI 返回的题目缺少有效 URL，已放弃');
+    const aiFile = path.join(root, 'training', 'plan.ai.json');
+    fs.writeFileSync(aiFile, JSON.stringify(plan, null, 2) + '\n', 'utf8');
+    const confirm = await vscode.window.showWarningMessage(
+        'AI 生成了新题单（' + plan.problems.length + ' 题）。题目来源由 AI 生成，应用前请核对 URL 是否真实。',
+        { modal: true }, '应用题单', '只保存预览'
+    );
+    if (confirm === '应用题单') {
+        try { fs.copyFileSync(planPath, path.join(root, 'training', 'plan.backup.json')); } catch (e) { /* ignore */ }
+        fs.writeFileSync(planPath, JSON.stringify(plan, null, 2) + '\n', 'utf8');
+        try { fs.writeFileSync(path.join(root, 'training', 'plan.md'), planToMarkdown(plan), 'utf8'); } catch (e) { /* ignore */ }
+        if (sidebarProvider) sidebarProvider.refresh();
+        const preview = path.join(root, 'training', 'plan.md');
+        if (await openPreview(preview)) {
+            vscode.window.showInformationMessage('已应用 AI 题单：training/plan.md（旧题单备份 plan.backup.json）');
+        }
+    } else {
+        const preview = path.join(root, 'training', 'plan.ai.json');
+        try { await vscode.window.showTextDocument(vscode.Uri.file(preview), { preview: true }); } catch (e) { /* ignore */ }
+    }
+}
+
 async function cmdPullTemplate() {
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -1554,6 +1615,7 @@ function sidebarHtml() {
                 { cmd: 'algorithmTraining.aiDebug', label: 'AI 找错', icon: '🩺', primary: true },
                 { cmd: 'algorithmTraining.aiPseudo', label: 'AI 审思路', icon: '📝', primary: true },
                 { cmd: 'algorithmTraining.aiEditorial', label: 'AI 题解', icon: '📚' },
+                { cmd: 'algorithmTraining.aiAdjustPlan', label: 'AI 调题单', icon: '🎯' },
                 { cmd: 'algorithmTraining.aiHint', label: 'AI 提示', icon: '💡', primary: true },
                 { cmd: 'algorithmTraining.aiAsk', label: '问 AI', icon: '❓' },
                 { cmd: 'algorithmTraining.aiReview', label: 'AI 复盘', icon: '🧠' },

@@ -1191,6 +1191,7 @@ class SamplesViewProvider {
                 if (msg.command === 'saveTest') return await self.saveTest(msg);
                 if (msg.command === 'runOne') return await self.runOne(msg);
             } catch (e) {
+                if (output && output.appendLine) output.appendLine('[samples] ERROR ' + (e && e.stack ? e.stack : String(e)));
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
             }
         });
@@ -1321,6 +1322,7 @@ class SamplesViewProvider {
         this.render();
     }
     async runOne(msg) {
+        if (!this.tests.length) await this.refresh();
         if (!this.cpp) {
             this.cpp = activeCppPath() || lastActiveCpp || '';
             if (!this.cpp) {
@@ -1351,7 +1353,7 @@ class SamplesViewProvider {
             if (!one) throw new Error('没有结果');
             const sampleTotal = this.tests.filter(function (t) { return t.kind !== 'custom'; }).length;
             const globalIdx = kind === 'custom' ? sampleTotal + idx : idx;
-            if (!this.results || !Array.isArray(this.results.tests)) {
+            if (!this.results || !Array.isArray(this.results.tests) || this.results.tests.length !== this.tests.length) {
                 this.results = {
                     tests: this.tests.map(function (t, i) {
                         return { index: i + 1, kind: t.kind, name: t.name || '', status: '待测', ms: 0, input: t.input, output: t.output, got: '' };
@@ -1375,7 +1377,8 @@ class SamplesViewProvider {
             const errLine = String(data.compileError || '').split(/\\r?\\n/).filter(function (l) { return l.trim(); })[0] || '';
             this.message = data.compiled === false ? ('编译失败：' + errLine.slice(0, 180)) : '';
         } catch (e) {
-            const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || '详见输出面板';
+            if (output && output.appendLine) output.appendLine('[samples] runOne ERROR ' + (e && e.stack ? e.stack : String(e)));
+            const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || (e && e.message) || '详见输出面板';
             this.message = '运行失败：' + first;
         }
         this.render();

@@ -2253,7 +2253,8 @@ function activate(context) {
         'algorithmTraining.setJudgeHandle': cmdSetJudgeHandle,
         'algorithmTraining.aiDebug': cmdAiDebug,
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
-        'algorithmTraining.aiEditorial': cmdAiEditorial
+        'algorithmTraining.aiEditorial': cmdAiEditorial,
+        'algorithmTraining.aiAdjustPlan': cmdAiAdjustPlan
     };
     Object.keys(map).forEach(function (id) {
         context.subscriptions.push(vscode.commands.registerCommand(id, map[id]));

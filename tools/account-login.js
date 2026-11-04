@@ -47,7 +47,10 @@ function out(obj) {
 
 function readCookie(cfg) {
     try {
-        return String(fs.readFileSync(cfg.cookie, 'utf8')).trim();
+        return String(fs.readFileSync(cfg.cookie, 'utf8'))
+            .replace(/\r?\n/g, ' ')
+            .replace(/^\s*Cookie:\s*/i, '')
+            .trim();
     } catch (e) {
         return '';
     }

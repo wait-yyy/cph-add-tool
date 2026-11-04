@@ -16,18 +16,23 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const COOKIE_FILE = path.join(ROOT, 'training', 'cf-cookies.txt');
 
+function normalizeCookie(value) {
+    return String(value == null ? '' : value)
+        .replace(/\r?\n/g, ' ')
+        .replace(/^\s*Cookie:\s*/i, '')
+        .trim();
+}
+
 function readCookie() {
     try {
-        const raw = fs.readFileSync(COOKIE_FILE, 'utf8');
-        const line = raw.replace(/\r?\n/g, ' ').trim();
-        return line;
+        return normalizeCookie(fs.readFileSync(COOKIE_FILE, 'utf8'));
     } catch (e) {
         return '';
     }
 }
 
 function writeCookie(value) {
-    const text = String(value == null ? '' : value).replace(/\r?\n/g, ' ').trim();
+    const text = normalizeCookie(value);
     if (!text) return false;
     fs.mkdirSync(path.dirname(COOKIE_FILE), { recursive: true });
     fs.writeFileSync(COOKIE_FILE, text + '\n', 'utf8');

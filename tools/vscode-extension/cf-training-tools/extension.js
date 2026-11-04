@@ -408,6 +408,13 @@ function siblingMarkdown(cppFsPath) {
     return cppFsPath.replace(/\.(cpp|cc|cxx)$/i, '.md');
 }
 
+function normalizeCookieText(value) {
+    return String(value == null ? '' : value)
+        .replace(/\r?\n/g, ' ')
+        .replace(/^\s*Cookie:\s*/i, '')
+        .trim();
+}
+
 function cfCookiePath() {
     return path.join(workspaceRoot(), 'training', 'cf-cookies.txt');
 }
@@ -670,7 +677,7 @@ async function cmdCfLogin() {
     try {
         const file = cfCookiePath();
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, String(cookie).trim() + '\n', 'utf8');
+        fs.writeFileSync(file, normalizeCookieText(cookie) + '\n', 'utf8');
     } catch (e) {
         return vscode.window.showErrorMessage('保存 Codeforces Cookie 失败：' + e.message);
     }
@@ -725,7 +732,7 @@ async function cmdPlatformLogin(platform) {
     const file = platformCookiePath(platform);
     try {
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, String(cookie).trim() + '\n', 'utf8');
+        fs.writeFileSync(file, normalizeCookieText(cookie) + '\n', 'utf8');
     } catch (e) {
         return vscode.window.showErrorMessage('保存 ' + info.label + ' Cookie 失败：' + e.message);
     }

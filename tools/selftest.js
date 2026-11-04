@@ -74,6 +74,12 @@ function main() {
     try { bsData = JSON.parse(String(bs.stdout || '').trim().split(/\r?\n/).pop()); } catch (e) { /* ignore */ }
     check('browser-submit check mode', bsData && bsData.ok === true, bsData && bsData.browser);
 
+    // CDP browser automation substrate (headless local form, never hits an OJ)
+    const cdp = run('node', [path.join(ROOT, 'tools', 'cdp-selftest.js')], 90000);
+    let cdpData = null;
+    try { cdpData = JSON.parse(String(cdp.stdout || '').trim().split(/\r?\n/).pop()); } catch (e) { /* ignore */ }
+    check('CDP fill/select/click', cdpData && cdpData.ok === true, cdpData && (cdpData.title || cdpData.message));
+
     // submit dry-run (no network, uses saved metadata)
     const cpp = path.join(ROOT, 'luogu', 'contest367096', 'B2175.cpp');
     if (fs.existsSync(cpp)) {

@@ -1079,7 +1079,8 @@ function samplesHtml(state) {
     const total = state.results ? Number(state.results.total || results.length) : state.tests.length;
     const passed = state.results ? Number(state.results.passed || 0) : 0;
     const pct = total ? Math.round(passed * 100 / total) : 0;
-    let cases = '';
+    let sampleCases = '';
+    let customCases = '';
     let fallbackCustom = 0;
     (state.tests || []).forEach(function (t, i) {
         const kind = t.kind === 'custom' ? 'custom' : 'sample';
@@ -1090,7 +1091,7 @@ function samplesHtml(state) {
         const status = r ? r.status : '待测';
         const cls = r ? (r.status === 'PASS' ? 'ok' : (r.status === 'FAIL' ? 'bad' : 'warn')) : 'idle';
         const del = kind === 'custom' ? '<button class="del" data-index="' + idx + '" title="删除这条自定义测试">✕</button>' : '';
-        cases += '<div class="case"><div class="hd"><b>#' + (i + 1) + '</b>' +
+        const card = '<div class="case"><div class="hd"><b>#' + (i + 1) + '</b>' +
             '<span class="kind ' + (kind === 'custom' ? 'kc' : 'ks') + '">' + (kind === 'custom' ? '自定义' : '样例') + '</span>' +
             (t.name ? '<span class="nm">' + esc(t.name) + '</span>' : '') +
             '<span class="badge ' + cls + '">' + esc(status) + '</span>' +
@@ -1099,6 +1100,8 @@ function samplesHtml(state) {
             '<div class="lbl">期望输出</div><textarea class="tout" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">' + esc(t.output || '') + '</textarea>' +
             (r && r.status !== 'PASS' ? ('<div class="lbl">实际输出</div><pre>' + esc(r.got || '(空)') + '</pre>') : '') +
             '<div class="row"><button class="runone" data-i="' + i + '" data-kind="' + kind + '" data-index="' + idx + '">▶ 运行此测试</button></div></div>';
+        if (kind === 'custom') customCases += card;
+        else sampleCases += card;
     });
     const scoreLine = state.results
         ? ('样例 ' + samplePassed + '/' + sampleTotal + ' · 自定义 ' + customPassed + '/' + customTotal +
@@ -1133,7 +1136,10 @@ function samplesHtml(state) {
         msg +
         '<div class="score">' + scoreLine + '</div><div class="bar"><i></i></div>' +
         '<button id="run">▶ 运行全部测试</button>' +
+        '<h3>样例</h3>' +
+        '<div id="cases-sample">' + sampleCases + '</div>' +
         '<h3>自定义测试</h3>' +
+        '<div id="cases-custom">' + customCases + '</div>' +
         '<div class="form">' +
         '<input id="cname" placeholder="名称（可选）">' +
         '<textarea id="cin" placeholder="输入（stdin）"></textarea>' +
@@ -1141,7 +1147,6 @@ function samplesHtml(state) {
         '<button id="add">➕ 添加并运行</button>' +
         '</div>' +
         '<div class="muted">自定义测试保存在同目录 题号.custom-tests.json；样例修改保存在 题号.sample-overrides.json</div>' +
-        '<div id="cases">' + cases + '</div>' +
         '<script nonce="' + nonce + '">const vscode=acquireVsCodeApi();' +
         'function valById(i,c){var els=document.querySelectorAll("textarea."+c);for(var k=0;k<els.length;k++){if(els[k].getAttribute("data-i")==i)return els[k].value;}return "";}' +
         'function collectEdits(){var vals=[];var ins=document.querySelectorAll("textarea.tin");for(var k=0;k<ins.length;k++){var i=ins[k].getAttribute("data-i");vals.push({kind:ins[k].getAttribute("data-kind"),index:Number(ins[k].getAttribute("data-index")),input:ins[k].value,output:valById(i,"tout")});}return vals;}' +

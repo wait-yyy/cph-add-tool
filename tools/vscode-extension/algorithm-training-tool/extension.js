@@ -1101,6 +1101,36 @@ async function cmdSetJudgeHandle() {
     vscode.window.showInformationMessage('已保存 ' + JUDGE_HANDLES[picked.platform] + ' handle：' + value.trim());
 }
 
+function browserSubmitUrl(platform, rawUrl) {
+    const url = String(rawUrl || '');
+    if (platform === 'codeforces') {
+        const m = /codeforces\.com\/(contest|gym)\/(\d+)\/problem\//i.exec(url);
+        if (m) return 'https://codeforces.com/' + m[1] + '/' + m[2] + '/submit';
+    }
+    if (platform === 'atcoder') {
+        const m = /atcoder\.jp\/contests\/([^/]+)\/tasks\/([^/?#]+)/i.exec(url);
+        if (m) return 'https://atcoder.jp/contests/' + m[1] + '/tasks/' + m[2] + '/submit';
+    }
+    return url;
+}
+
+async function cmdSubmitBrowser() {
+    const cpp = activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
+    await saveDocumentForPath(cpp);
+    const res = await runNode('submit.js', [cpp, '--dry-run'], '准备浏览器提交…', { cancellable: true });
+    const data = parseLastJson(String(res.stdout || ''));
+    if (!data || !data.url) return vscode.window.showErrorMessage('找不到题目链接（缺少同目录 <题号>.json / .cph）');
+    let code = '';
+    try { code = fs.readFileSync(cpp, 'utf8'); } catch (e) { return vscode.window.showErrorMessage('读取代码失败：' + e.message); }
+    try { await vscode.env.clipboard.writeText(code); } catch (e) { /* ignore */ }
+    const target = browserSubmitUrl(data.platform, data.url);
+    await vscode.env.openExternal(vscode.Uri.parse(target));
+    vscode.window.showInformationMessage(
+        '已复制代码并在浏览器打开提交页：' + (data.platform || 'OJ') + '。在网页编辑器粘贴代码后手动提交即可（自动提交被 Cloudflare 拦截）。'
+    );
+}
+
 async function cmdAiDebug() {
     const cpp = activeCppPath();
     if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
@@ -1922,6 +1952,7 @@ function samplesHtml(state) {
         '<div class="score">' + scoreLine + '</div><div class="bar"><i></i></div>' +
         '<button id="run">▶ 运行全部测试</button>' +
         '<button id="submit">🚀 提交到 OJ</button>' +
+        '<button id="submitBrowser">🌐 浏览器提交（复制代码）</button>' +
         '<h3>样例</h3>' +
         '<div id="cases-sample">' + sampleCases + '</div>' +
         '<h3>自定义测试</h3>' +
@@ -1938,6 +1969,7 @@ function samplesHtml(state) {
         'function collectEdits(){var vals=[];var ins=document.querySelectorAll("textarea.tin");for(var k=0;k<ins.length;k++){var i=ins[k].getAttribute("data-i");vals.push({kind:ins[k].getAttribute("data-kind"),index:Number(ins[k].getAttribute("data-index")),input:ins[k].value,output:valById(i,"tout")});}return vals;}' +
         'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run",values:collectEdits()});});' +
         'document.getElementById("submit").addEventListener("click",function(){vscode.postMessage({command:"submit"});});' +
+        'document.getElementById("submitBrowser").addEventListener("click",function(){vscode.postMessage({command:"submitBrowser"});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:valById(i,"tin"),output:valById(i,"tout")});});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
@@ -1983,6 +2015,7 @@ class SamplesViewProvider {
                 if (msg.command === 'saveTest') return await self.saveTest(msg);
                 if (msg.command === 'runOne') return await self.runOne(msg);
                 if (msg.command === 'submit') return await vscode.commands.executeCommand('algorithmTraining.submit', self.cpp);
+                if (msg.command === 'submitBrowser') return await vscode.commands.executeCommand('algorithmTraining.submitBrowser');
             } catch (e) {
                 if (output && output.appendLine) output.appendLine('[samples] ERROR ' + (e && e.stack ? e.stack : String(e)));
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
@@ -2344,6 +2377,7 @@ function activate(context) {
         'algorithmTraining.companion': cmdCompanion,
         'algorithmTraining.setJudgeHandle': cmdSetJudgeHandle,
         'algorithmTraining.aiDebug': cmdAiDebug,
+        'algorithmTraining.submitBrowser': cmdSubmitBrowser,
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
         'algorithmTraining.aiEditorial': cmdAiEditorial,
         'algorithmTraining.aiAdjustPlan': cmdAiAdjustPlan,

@@ -299,6 +299,11 @@ function runNode(scriptName, args, title, options) {
         output.show(true);
         output.appendLine('> node ' + scriptName + ' ' + (args || []).join(' '));
     }
+    const prevStatusText = statusBar ? statusBar.text : '';
+    const restoreStatus = function () {
+        if (statusBar) statusBar.text = prevStatusText || '$(mortar-board) 算法训练';
+    };
+    if (statusBar) statusBar.text = '$(sync~spin) ' + (title || '算法训练处理中…');
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: title || '算法训练工具',
@@ -313,6 +318,7 @@ function runNode(scriptName, args, title, options) {
             try {
                 child = spawn('node', [scriptPath].concat(args || []), { cwd: root, windowsHide: true });
             } catch (e) {
+                restoreStatus();
                 return resolve({ code: -1, stdout: '', stderr: String(e), cancelled: false });
             }
             if (token && token.onCancellationRequested) {
@@ -325,8 +331,9 @@ function runNode(scriptName, args, title, options) {
             }
             child.stdout.on('data', function (d) { const s = d.toString(); stdout += s; if (output) output.append(s); });
             child.stderr.on('data', function (d) { const s = d.toString(); stderr += s; if (output) output.append(s); });
-            child.on('error', function (e) { resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e), cancelled: cancelled }); });
+            child.on('error', function (e) { restoreStatus(); resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e), cancelled: cancelled }); });
             child.on('close', function (code) {
+                restoreStatus();
                 if (killTimer) clearTimeout(killTimer);
                 resolve({ code: code, stdout: stdout, stderr: stderr, cancelled: cancelled || !!(token && token.isCancellationRequested) });
             });
@@ -374,6 +381,11 @@ function runPowerShell(scriptName, args, title, options) {
         output.show(true);
         output.appendLine('> ' + scriptName + ' ' + (args || []).join(' '));
     }
+    const prevStatusText = statusBar ? statusBar.text : '';
+    const restoreStatus = function () {
+        if (statusBar) statusBar.text = prevStatusText || '$(mortar-board) 算法训练';
+    };
+    if (statusBar) statusBar.text = '$(sync~spin) ' + (title || '算法训练处理中…');
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: title || '算法训练工具',
@@ -388,6 +400,7 @@ function runPowerShell(scriptName, args, title, options) {
             try {
                 child = spawn('powershell.exe', fullArgs, { cwd: root, windowsHide: true });
             } catch (e) {
+                restoreStatus();
                 return resolve({ code: -1, stdout: '', stderr: String(e), cancelled: false });
             }
             if (token && token.onCancellationRequested) {
@@ -412,6 +425,7 @@ function runPowerShell(scriptName, args, title, options) {
                 resolve({ code: -1, stdout: stdout, stderr: stderr + ' ' + String(e), cancelled: cancelled });
             });
             child.on('close', function (code) {
+                restoreStatus();
                 if (killTimer) clearTimeout(killTimer);
                 resolve({ code: code, stdout: stdout, stderr: stderr, cancelled: cancelled || !!(token && token.isCancellationRequested) });
             });
@@ -1127,7 +1141,19 @@ async function cmdAiEditorial() {
     if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
     const md = siblingMarkdown(cpp);
     if (!fs.existsSync(md)) return vscode.window.showWarningMessage('没有找到同目录题面 .md，先拉题或打开已有题面');
-    await runAiMarkdown('editorial', ['--md', md], 'AI 生成题解中…', 'ai-editorial.md');
+    const text = await runAiMarkdown('editorial', ['--md', md], 'AI 生成题解中…', 'ai-editorial.md');
+    if (text) {
+        try {
+            const dir = communityDir();
+            if (dir) {
+                ensureCommunityReadme(dir);
+                const base = path.basename(cpp).replace(/\.(cpp|cc|cxx)$/i, '');
+                const file = path.join(dir, base + '.md');
+                fs.writeFileSync(file, '# ' + base + ' 题解（AI）\n\n' + text + '\n', 'utf8');
+                vscode.window.showInformationMessage('AI 题解已保存到 training/community/' + base + '.md');
+            }
+        } catch (e) { /* ignore */ }
+    }
 }
 
 function planToMarkdown(plan) {
@@ -1222,6 +1248,37 @@ async function cmdCfAcList() {
     }
     const base = data.gym ? ('https://codeforces.com/gym/' + data.contestId) : ('https://codeforces.com/contest/' + data.contestId);
     await vscode.env.openExternal(vscode.Uri.parse(base + '/submission/' + picked.submissionId));
+}
+
+function communityDir() {
+    const root = workspaceRoot();
+    return root ? path.join(root, 'training', 'community') : '';
+}
+
+function ensureCommunityReadme(dir) {
+    const readme = path.join(dir, 'README.md');
+    if (fs.existsSync(readme)) return readme;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(readme, [
+        '# AI 题解交流社区（本地）',
+        '',
+        '这里保存 AI 生成的题解、自己的关键观察和复盘笔记。',
+        '',
+        '- 每题一个 Markdown：`<平台>-<题号>.md`',
+        '- 可以通过面板「AI 助手 → AI 题解」生成后保存到本目录',
+        '- 后续可扩展为多人共享/评论（目前先做本地资料库）',
+        ''
+    ].join('\n'), 'utf8');
+    return readme;
+}
+
+async function cmdCommunityOpen() {
+    const dir = communityDir();
+    if (!dir) return;
+    const readme = ensureCommunityReadme(dir);
+    if (!(await openPreview(readme))) {
+        try { await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(dir)); } catch (e) { /* ignore */ }
+    }
 }
 
 async function cmdPullTemplate() {
@@ -1650,6 +1707,7 @@ function sidebarHtml() {
                 { cmd: 'algorithmTraining.aiEditorial', label: 'AI 题解', icon: '📚' },
                 { cmd: 'algorithmTraining.aiAdjustPlan', label: 'AI 调题单', icon: '🎯' },
                 { cmd: 'algorithmTraining.aiAcList', label: '同题 AC', icon: '👥' },
+                { cmd: 'algorithmTraining.community', label: '题解社区', icon: '🏛️' },
                 { cmd: 'algorithmTraining.aiHint', label: 'AI 提示', icon: '💡', primary: true },
                 { cmd: 'algorithmTraining.aiAsk', label: '问 AI', icon: '❓' },
                 { cmd: 'algorithmTraining.aiReview', label: 'AI 复盘', icon: '🧠' },
@@ -2289,7 +2347,8 @@ function activate(context) {
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
         'algorithmTraining.aiEditorial': cmdAiEditorial,
         'algorithmTraining.aiAdjustPlan': cmdAiAdjustPlan,
-        'algorithmTraining.aiAcList': cmdCfAcList
+        'algorithmTraining.aiAcList': cmdCfAcList,
+        'algorithmTraining.community': cmdCommunityOpen
     };
     Object.keys(map).forEach(function (id) {
         context.subscriptions.push(vscode.commands.registerCommand(id, map[id]));

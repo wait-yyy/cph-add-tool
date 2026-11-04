@@ -2,7 +2,7 @@
     "name":  "algorithm-training-tool",
     "displayName":  "Algorithm Training Tool",
     "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version":  "0.14.0",
+    "version":  "0.15.0",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",
@@ -247,6 +247,11 @@
                                          {
                                              "command":  "algorithmTraining.aiAcList",
                                              "title":  "查询同题 AC（Codeforces）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.community",
+                                             "title":  "打开 AI 题解社区",
                                              "category":  "算法训练"
                                          }
                                      ],

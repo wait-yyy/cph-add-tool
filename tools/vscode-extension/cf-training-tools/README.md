@@ -68,6 +68,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 ## Codeforces Gym / 私有比赛（登录）
 
 Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / 维护」→「🍪 设置 CF 登录 Cookie」，粘贴浏览器里 `codeforces.com` 请求的 **Cookie** 整行即可（会自动验证并显示 handle）。Cookie 只存本机 `training/cf-cookies.txt`，已 gitignore；过期后重新设置，或用「🚪 清除 CF 登录 Cookie」退出。
+## 提交到 OJ
+
+样例自测面板顶部新增 **🚀 提交到 OJ**：
+
+- 自动读取当前题的 `<题号>.json` / `.cph` 缓存里的题目链接，判断 OJ
+- 提交前会保存当前文件（含未保存修改）
+- 支持 **Codeforces（正赛/Gym）、洛谷、AtCoder** 自动提交；牛客暂不支持自动提交
+- 需要先在「账号登录」保存对应平台的 Cookie；未登录会提示去登录
+- 提交成功显示提交记录链接，可在浏览器打开
 ## 账号登录
 
 活动栏「CF 训练」→「账号登录」：

@@ -366,6 +366,19 @@ function activeCppPath() {
     return lastActiveCpp || null;
 }
 
+async function saveDocumentForPath(fsPath) {
+    try {
+        const docs = vscode.workspace.textDocuments || [];
+        for (let i = 0; i < docs.length; i++) {
+            const doc = docs[i];
+            if (doc && doc.uri && doc.uri.fsPath === fsPath) {
+                if (doc.isDirty && typeof doc.save === 'function') await doc.save();
+                return;
+            }
+        }
+    } catch (e) { /* ignore */ }
+}
+
 function siblingMarkdown(cppFsPath) {
     return cppFsPath.replace(/\.(cpp|cc|cxx)$/i, '.md');
 }
@@ -749,6 +762,40 @@ async function cmdAccountStatus() {
     }
     if (sidebarProvider) sidebarProvider.refresh();
     vscode.window.showInformationMessage(results.join('　|　'));
+}
+
+async function cmdSubmit(cppArg) {
+    const cpp = cppArg || activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
+    await saveDocumentForPath(cpp);
+    const confirm = await vscode.window.showWarningMessage(
+        '提交 ' + path.basename(cpp) + ' 到对应 OJ？提交后会在评测机上产生一次记录。',
+        { modal: true }, '提交'
+    );
+    if (confirm !== '提交') return;
+    const res = await runNode('submit.js', [cpp], '提交代码到 OJ…', { cancellable: true });
+    if (output) output.appendLine('[submit] code=' + res.code + ' err=' + String(res.stderr || '').slice(0, 200));
+    const data = parseLastJson(String(res.stdout || ''));
+    if (!data) return vscode.window.showErrorMessage('提交失败：没有返回结果（见输出面板）');
+    if (!data.ok) {
+        if (data.needLogin) {
+            const loginCmd = {
+                codeforces: 'cfTraining.loginCodeforces',
+                luogu: 'cfTraining.loginLuogu',
+                atcoder: 'cfTraining.loginAtcoder',
+                nowcoder: 'cfTraining.loginNowcoder'
+            }[data.platform];
+            const pick = await vscode.window.showWarningMessage(data.message || '需要先登录对应平台', '去登录');
+            if (pick === '去登录' && loginCmd) await vscode.commands.executeCommand(loginCmd);
+        } else {
+            vscode.window.showErrorMessage('提交失败：' + (data.message || '未知错误'));
+        }
+        return;
+    }
+    const pick = await vscode.window.showInformationMessage(data.message || ('已提交 ' + path.basename(cpp)), data.submissionUrl ? '打开提交记录' : '确定');
+    if (pick === '打开提交记录' && data.submissionUrl) {
+        try { await vscode.env.openExternal(vscode.Uri.parse(data.submissionUrl)); } catch (e) { /* ignore */ }
+    }
 }
 
 async function cmdPullTemplate() {
@@ -1176,6 +1223,7 @@ function sidebarHtml() {
             title: '代码',
             items: [
                 { cmd: 'cfTraining.sampleTests', label: '🧪 样例自测（计分）', primary: true },
+                { cmd: 'cfTraining.submit', label: '🚀 提交当前题到 OJ', primary: true },
                 { cmd: 'cfTraining.samples', label: '▶️ 编译并跑样例' },
                 { cmd: 'cfTraining.build', label: '🔨 只编译' }
             ]
@@ -1319,6 +1367,7 @@ function samplesHtml(state) {
         msg +
         '<div class="score">' + scoreLine + '</div><div class="bar"><i></i></div>' +
         '<button id="run">▶ 运行全部测试</button>' +
+        '<button id="submit">🚀 提交到 OJ</button>' +
         '<h3>样例</h3>' +
         '<div id="cases-sample">' + sampleCases + '</div>' +
         '<h3>自定义测试</h3>' +
@@ -1334,6 +1383,7 @@ function samplesHtml(state) {
         'function valById(i,c){var els=document.querySelectorAll("textarea."+c);for(var k=0;k<els.length;k++){if(els[k].getAttribute("data-i")==i)return els[k].value;}return "";}' +
         'function collectEdits(){var vals=[];var ins=document.querySelectorAll("textarea.tin");for(var k=0;k<ins.length;k++){var i=ins[k].getAttribute("data-i");vals.push({kind:ins[k].getAttribute("data-kind"),index:Number(ins[k].getAttribute("data-index")),input:ins[k].value,output:valById(i,"tout")});}return vals;}' +
         'document.getElementById("run").addEventListener("click",function(){vscode.postMessage({command:"run",values:collectEdits()});});' +
+        'document.getElementById("submit").addEventListener("click",function(){vscode.postMessage({command:"submit"});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:valById(i,"tin"),output:valById(i,"tout")});});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
@@ -1378,6 +1428,7 @@ class SamplesViewProvider {
                 if (msg.command === 'deleteCustom') return await self.deleteCustom(msg);
                 if (msg.command === 'saveTest') return await self.saveTest(msg);
                 if (msg.command === 'runOne') return await self.runOne(msg);
+                if (msg.command === 'submit') return await vscode.commands.executeCommand('cfTraining.submit', self.cpp);
             } catch (e) {
                 if (output && output.appendLine) output.appendLine('[samples] ERROR ' + (e && e.stack ? e.stack : String(e)));
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
@@ -1453,6 +1504,7 @@ class SamplesViewProvider {
     }
     async run() {
         if (!this.cpp) return this.refresh();
+        await saveDocumentForPath(this.cpp);
         this.message = '正在编译并运行测试…';
         this.render();
         const res = await runNode('sample-tests.js', [this.cpp], '运行样例自测…', { cancellable: true });
@@ -1525,6 +1577,7 @@ class SamplesViewProvider {
         const input = String(msg.input == null ? '' : msg.input);
         const outputText = String(msg.output == null ? '' : msg.output);
         await this.saveTest({ kind: kind, index: idx, input: input, output: outputText });
+        await saveDocumentForPath(this.cpp);
         this.message = '正在运行单个测试…';
         this.render();
         const args = [this.cpp, kind === 'custom' ? '--only-custom' : '--only-sample', String(idx)];
@@ -1727,6 +1780,7 @@ function activate(context) {
         'cfTraining.statementOpen': cmdStatementOpen,
         'cfTraining.statementNow': cmdStatementNow,
         'cfTraining.sampleTests': cmdSampleTests,
+        'cfTraining.submit': cmdSubmit,
         'cfTraining.samples': cmdSamples,
         'cfTraining.build': cmdBuild,
         'cfTraining.setHandle': cmdSetHandle,

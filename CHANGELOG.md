@@ -1,5 +1,13 @@
 # 更新日志
 
+## 0.9.0
+
+- 样例自测面板新增 **🚀 提交到 OJ** 按钮 + 侧边栏「提交当前题到 OJ」命令
+- 支持 Codeforces（正赛/Gym）、洛谷、AtCoder 自动提交（需要对应平台 Cookie）
+- 牛客暂不支持自动提交，会明确提示手动提交
+- 提交前自动保存当前 `.cpp`（包括未保存的修改）；运行样例前也会自动保存
+- 新增 `tools/submit.js`（识别 OJ、提交、返回提交记录链接；支持 `--dry-run` 检查）
+
 ## 0.8.1
 
 - 明确「公开数据 vs 私有数据」：公开比赛/题面不需要登录；**Codeforces Gym / 私有比赛必须设置 CF Cookie**（匿名 API 返回 `You have to be authenticated`）

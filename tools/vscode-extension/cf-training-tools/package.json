@@ -2,7 +2,7 @@
     "name":  "cf-training-tools",
     "displayName":  "CF Training Tools",
     "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version":  "0.8.1",
+    "version":  "0.9.0",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",
@@ -197,6 +197,11 @@
                                          {
                                              "title":  "检查各平台账号状态",
                                              "command":  "cfTraining.accountStatus",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "command":  "cfTraining.submit",
+                                             "title":  "提交当前题到对应 OJ",
                                              "category":  "CF 训练"
                                          }
                                      ],

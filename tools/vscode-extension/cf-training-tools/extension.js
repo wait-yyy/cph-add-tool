@@ -1224,10 +1224,17 @@ function sidebarHtml() {
 
     const groups = [
         {
-            title: '快速开始', icon: '⚡', sub: '抓题 · 自测 · 提交', open: true,
+            title: '快速开始', icon: '⚡', sub: '拉题 · 题面', open: true,
             items: [
-                { cmd: 'cfTraining.pullContest', label: '抓取整场比赛', icon: '📥', primary: true, wide: true },
+                { cmd: 'cfTraining.pullContest', label: '抓取整场比赛', icon: '📥', primary: true },
                 { cmd: 'cfTraining.pullProblem', label: '抓取单个题目', icon: '📄' },
+                { cmd: 'cfTraining.statementOpen', label: '打开当前题面', icon: '📖' },
+                { cmd: 'cfTraining.statementNow', label: '重新抓取题面', icon: '🔄' }
+            ]
+        },
+        {
+            title: '代码与提交', icon: '🧪', sub: '自测 · 提交 · 编译', open: true,
+            items: [
                 { cmd: 'cfTraining.sampleTests', label: '样例自测（计分）', icon: '🧪', primary: true },
                 { cmd: 'cfTraining.submit', label: '提交到 OJ', icon: '🚀', primary: true },
                 { cmd: 'cfTraining.samples', label: '编译并跑样例', icon: '▶️' },
@@ -1235,18 +1242,10 @@ function sidebarHtml() {
             ]
         },
         {
-            title: '题面', icon: '📖', sub: '预览 / 重新抓取', open: true,
-            items: [
-                { cmd: 'cfTraining.statementOpen', label: '打开当前题面', icon: '📖' },
-                { cmd: 'cfTraining.statementNow', label: '重新抓取题面', icon: '🔄' }
-            ]
-        },
-        {
-            title: '训练计划', icon: '📅', sub: '复盘 / 模板', open: true,
+            title: '训练计划', icon: '📅', sub: '赛后复盘', open: true,
             items: [
                 { cmd: 'cfTraining.reviewLatest', label: '复盘最近一场', icon: '🧾', primary: true },
-                { cmd: 'cfTraining.reviewInput', label: '复盘指定比赛', icon: '🔍' },
-                { cmd: 'cfTraining.pullTemplate', label: '拉题初始模板', icon: '🧩' }
+                { cmd: 'cfTraining.reviewInput', label: '复盘指定比赛', icon: '🔍' }
             ]
         },
         {
@@ -1261,27 +1260,26 @@ function sidebarHtml() {
             ]
         },
         {
-            title: '账号', icon: '👤', sub: '登录 / 状态', open: false,
+            title: '账号', icon: '👤', sub: '登录 · Cookie · handle', open: false,
             items: [
                 { cmd: 'cfTraining.loginCodeforces', label: '登录 Codeforces', icon: '🟥' },
                 { cmd: 'cfTraining.loginLuogu', label: '登录 洛谷', icon: '🟦' },
                 { cmd: 'cfTraining.loginNowcoder', label: '登录 牛客', icon: '🟨' },
                 { cmd: 'cfTraining.loginAtcoder', label: '登录 AtCoder', icon: '🟪' },
                 { cmd: 'cfTraining.accountStatus', label: '检查账号状态', icon: '🔎' },
-                { cmd: 'cfTraining.setHandle', label: '设置 CF handle', icon: '👤' }
+                { cmd: 'cfTraining.setHandle', label: '设置 CF handle', icon: '👤' },
+                { cmd: 'cfTraining.cfLogout', label: '清除 CF Cookie', icon: '🚪' }
             ]
         },
         {
-            title: '设置 / 帮助', icon: '⚙️', sub: '维护', open: false,
+            title: '设置', icon: '⚙️', sub: '模板 · AI 设置 · 帮助', open: false,
             items: [
-                { cmd: 'cfTraining.cfLoginCheck', label: '检查 CF Cookie', icon: '✅' },
-                { cmd: 'cfTraining.cfLogout', label: '清除 CF Cookie', icon: '🚪' },
+                { cmd: 'cfTraining.pullTemplate', label: '拉题初始模板', icon: '🧩' },
                 { cmd: 'cfTraining.aiSettings', label: 'AI 设置页', icon: '🧰' },
                 { cmd: 'cfTraining.openDoc', label: '训练手册', icon: '❓' }
             ]
         }
     ];
-
     let body = '';
     groups.forEach(function (g) {
         body += '<details class="card group"' + (g.open ? ' open' : '') + '>' +

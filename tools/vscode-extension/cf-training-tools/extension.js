@@ -823,6 +823,46 @@ async function cmdSubmit(cppArg) {
     }
 }
 
+async function cmdClearCookie() {
+    const platforms = Object.keys(PLATFORM_LOGIN);
+    const items = platforms.map(function (p) {
+        const file = platformCookiePath(p);
+        let exists = false;
+        try { exists = fs.existsSync(file); } catch (e) { exists = false; }
+        return { label: PLATFORM_LOGIN[p].label, description: exists ? '已保存 Cookie（点击清除）' : '未保存', platform: p };
+    });
+    items.push({ label: '全部平台', description: '清除所有 OJ Cookie', platform: 'all' });
+    const picked = await vscode.window.showQuickPick(items, { placeHolder: '选择要清除 Cookie 的平台' });
+    if (!picked) return;
+    const targets = picked.platform === 'all' ? platforms : [picked.platform];
+    const cleared = [];
+    targets.forEach(function (p) {
+        try {
+            const file = platformCookiePath(p);
+            if (fs.existsSync(file)) { fs.unlinkSync(file); cleared.push(PLATFORM_LOGIN[p].label); }
+        } catch (e) { /* ignore */ }
+    });
+    const accountsFile = accountDataPath();
+    try {
+        const data = readAccounts();
+        targets.forEach(function (p) { delete data[p]; });
+        fs.mkdirSync(path.dirname(accountsFile), { recursive: true });
+        fs.writeFileSync(accountsFile, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    } catch (e) { /* ignore */ }
+    if (sidebarProvider) sidebarProvider.refresh();
+    vscode.window.showInformationMessage(cleared.length ? ('已清除：' + cleared.join('、') + ' Cookie') : '所选平台没有保存 Cookie');
+}
+
+async function cmdOpenCookieFolder() {
+    const dir = path.join(workspaceRoot(), 'training');
+    try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { /* ignore */ }
+    try {
+        await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(dir));
+    } catch (e) {
+        try { await vscode.env.openExternal(vscode.Uri.file(dir)); } catch (e2) { /* ignore */ }
+    }
+}
+
 async function cmdPullTemplate() {
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -1232,15 +1272,7 @@ function sidebarHtml() {
                 { cmd: 'cfTraining.statementNow', label: '重新抓取题面', icon: '🔄' }
             ]
         },
-        {
-            title: '代码与提交', icon: '🧪', sub: '自测 · 提交 · 编译', open: true,
-            items: [
-                { cmd: 'cfTraining.sampleTests', label: '样例自测（计分）', icon: '🧪', primary: true },
-                { cmd: 'cfTraining.submit', label: '提交到 OJ', icon: '🚀', primary: true },
-                { cmd: 'cfTraining.samples', label: '编译并跑样例', icon: '▶️' },
-                { cmd: 'cfTraining.build', label: '只编译', icon: '🔨' }
-            ]
-        },
+
         {
             title: '训练计划', icon: '📅', sub: '赛后复盘', open: true,
             items: [
@@ -1267,8 +1299,9 @@ function sidebarHtml() {
                 { cmd: 'cfTraining.loginNowcoder', label: '登录 牛客', icon: '🟨' },
                 { cmd: 'cfTraining.loginAtcoder', label: '登录 AtCoder', icon: '🟪' },
                 { cmd: 'cfTraining.accountStatus', label: '检查账号状态', icon: '🔎' },
-                { cmd: 'cfTraining.setHandle', label: '设置 CF handle', icon: '👤' },
-                { cmd: 'cfTraining.cfLogout', label: '清除 CF Cookie', icon: '🚪' }
+                { cmd: 'cfTraining.clearCookie', label: '清除平台 Cookie', icon: '🚪' },
+                { cmd: 'cfTraining.openCookieFolder', label: '打开 Cookie 目录', icon: '📁' },
+                { cmd: 'cfTraining.setHandle', label: '设置 CF handle', icon: '👤' }
             ]
         },
         {
@@ -1858,6 +1891,8 @@ function activate(context) {
         'cfTraining.loginNowcoder': function () { return cmdPlatformLogin('nowcoder'); },
         'cfTraining.loginAtcoder': function () { return cmdPlatformLogin('atcoder'); },
         'cfTraining.accountStatus': cmdAccountStatus,
+        'cfTraining.clearCookie': cmdClearCookie,
+        'cfTraining.openCookieFolder': cmdOpenCookieFolder,
         'cfTraining.cfLoginCheck': cmdCfLoginCheck,
         'cfTraining.cfLogout': cmdCfLogout,
         'cfTraining.pullTemplate': cmdPullTemplate,

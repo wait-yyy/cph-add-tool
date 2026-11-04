@@ -2,7 +2,7 @@
     "name":  "cf-training-tools",
     "displayName":  "CF Training Tools",
     "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
-    "version":  "0.9.2",
+    "version":  "0.9.3",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",
@@ -202,6 +202,16 @@
                                          {
                                              "command":  "cfTraining.submit",
                                              "title":  "提交当前题到对应 OJ",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "清除 OJ Cookie（选择平台）",
+                                             "command":  "cfTraining.clearCookie",
+                                             "category":  "CF 训练"
+                                         },
+                                         {
+                                             "title":  "打开 Cookie 保存目录",
+                                             "command":  "cfTraining.openCookieFolder",
                                              "category":  "CF 训练"
                                          }
                                      ],

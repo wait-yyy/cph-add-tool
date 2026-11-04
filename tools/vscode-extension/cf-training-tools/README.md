@@ -83,7 +83,7 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 
 - **登录 Codeforces / 洛谷 / 牛客 / AtCoder**：点按钮 → 「打开登录页」先在浏览器登录 → 回来点「粘贴 Cookie」→ 粘贴对应网站的 Cookie 请求头
 - 登录成功后自动读取昵称并显示在面板顶部「账号：」一行；CF 同时会更新 handle
-- 支持「检查账号状态」，批量校验已保存的 Cookie
+- 支持「检查账号状态」批量校验已保存的 Cookie；「清除平台 Cookie」可按平台或全部清除；「打开 Cookie 目录」直达 training
 - Cookie 只保存在本机 `training/cf-cookies.txt` / `training/cookies.<platform>.txt`，已 gitignore
 ## 样例自测（计分）
 

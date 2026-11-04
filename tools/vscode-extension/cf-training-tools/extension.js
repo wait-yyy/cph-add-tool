@@ -1335,8 +1335,8 @@ class SamplesViewProvider {
         const idx = Number(msg.index);
         if (!isFinite(idx) || idx < 0) return;
         const input = String(msg.input == null ? '' : msg.input);
-        const output = String(msg.output == null ? '' : msg.output);
-        await this.saveTest({ kind: kind, index: idx, input: input, output: output });
+        const outputText = String(msg.output == null ? '' : msg.output);
+        await this.saveTest({ kind: kind, index: idx, input: input, output: outputText });
         this.message = '正在运行单个测试…';
         this.render();
         const args = [this.cpp, kind === 'custom' ? '--only-custom' : '--only-sample', String(idx)];

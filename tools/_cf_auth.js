@@ -17,7 +17,10 @@ const ROOT = path.resolve(__dirname, '..');
 const COOKIE_FILE = path.join(ROOT, 'training', 'cf-cookies.txt');
 
 function normalizeCookie(value) {
-    return String(value == null ? '' : value)
+    let text = String(value == null ? '' : value).trim();
+    const m = /(?:-H|--header|-b)\s+['"](?:cookie:\s*)?([^'"]+)['"]/i.exec(text);
+    if (m) text = m[1];
+    return text
         .replace(/\r?\n/g, ' ')
         .replace(/^\s*Cookie:\s*/i, '')
         .trim();

@@ -409,7 +409,10 @@ function siblingMarkdown(cppFsPath) {
 }
 
 function normalizeCookieText(value) {
-    return String(value == null ? '' : value)
+    let text = String(value == null ? '' : value).trim();
+    const m = /(?:-H|--header|-b)\s+['"](?:cookie:\s*)?([^'"]+)['"]/i.exec(text);
+    if (m) text = m[1];
+    return text
         .replace(/\r?\n/g, ' ')
         .replace(/^\s*Cookie:\s*/i, '')
         .trim();
@@ -723,7 +726,7 @@ async function cmdPlatformLogin(platform) {
     }
     if (action !== '粘贴 Cookie') return;
     const cookie = await vscode.window.showInputBox({
-        prompt: '粘贴 ' + info.host + ' 的 Cookie 请求头（F12 → Network → 任意请求 → Request Headers → Cookie，整行复制）',
+        prompt: '粘贴 ' + info.host + ' 的 Cookie 请求头；或右键请求 → 复制 → 复制为 cURL，整段粘贴（会自动提取）',
         password: true,
         ignoreFocusOut: true,
         validateInput: function (s) { return String(s || '').trim() ? null : '不能为空'; }

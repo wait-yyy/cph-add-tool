@@ -47,7 +47,10 @@ function out(obj) {
 
 function readCookie(cfg) {
     try {
-        return String(fs.readFileSync(cfg.cookie, 'utf8'))
+        let text = String(fs.readFileSync(cfg.cookie, 'utf8')).trim();
+        const m = /(?:-H|--header|-b)\s+['"](?:cookie:\s*)?([^'"]+)['"]/i.exec(text);
+        if (m) text = m[1];
+        return text
             .replace(/\r?\n/g, ' ')
             .replace(/^\s*Cookie:\s*/i, '')
             .trim();

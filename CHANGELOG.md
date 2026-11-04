@@ -1,5 +1,12 @@
 # 更新日志
 
+## 0.8.1
+
+- 明确「公开数据 vs 私有数据」：公开比赛/题面不需要登录；**Codeforces Gym / 私有比赛必须设置 CF Cookie**（匿名 API 返回 `You have to be authenticated`）
+- 面板账号行显示 Gym 状态：`Gym：可用` / `Gym：需要 CF Cookie`
+- 抓 Gym 比赛时若未设置 Cookie，会弹窗提示并可一键去登录
+- 登录提示文案区分公开/私有场景
+
 ## 0.8.0
 
 - 训练面板新增**账号登录**：Codeforces / 洛谷 / 牛客 / AtCoder 四个平台

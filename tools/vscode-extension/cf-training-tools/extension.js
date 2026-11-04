@@ -92,7 +92,7 @@ function accountLineHtml() {
         let nickname = accounts[d[0]] && accounts[d[0]].nickname ? String(accounts[d[0]].nickname) : '';
         if (!nickname && d[0] === 'codeforces') nickname = handle;
         return escapeHtml(d[1]) + '：' + (nickname ? '<code>' + escapeHtml(nickname) + '</code>' : '<span class="muted">未登录</span>');
-    }).join('　');
+    }).join('　') + '　' + gymStatusHtml();
 }
 
 function parseLastJson(text) {
@@ -374,6 +374,20 @@ function cfCookiePath() {
     return path.join(workspaceRoot(), 'training', 'cf-cookies.txt');
 }
 
+function hasCfCookie() {
+    try {
+        return !!String(fs.readFileSync(cfCookiePath(), 'utf8')).trim();
+    } catch (e) {
+        return false;
+    }
+}
+
+function gymStatusHtml() {
+    return hasCfCookie()
+        ? '<span title="已保存 CF Cookie，可抓 Gym/私有比赛">Gym：<code>可用</code></span>'
+        : '<span title="Gym/私有比赛需要 Codeforces 登录 Cookie">Gym：<span class="muted">需要 CF Cookie</span></span>';
+}
+
 function customTestsFile(cppPath) {
     return path.join(path.dirname(cppPath), path.basename(cppPath).replace(/\.(cpp|cc|cxx)$/i, '') + '.custom-tests.json');
 }
@@ -529,6 +543,16 @@ async function cmdPullContest() {
         validateInput: function (s) { return /^https?:\/\//i.test(String(s || '').trim()) ? null : '请输入 http(s) 链接'; }
     });
     if (!url) return;
+    if (/codeforces\.com\/gym\//i.test(url) && !hasCfCookie()) {
+        const act = await vscode.window.showWarningMessage(
+            '这是 Codeforces Gym 比赛，匿名 API 会被拒绝（You have to be authenticated）。需要先设置 CF 登录 Cookie。',
+            '去登录', '继续尝试'
+        );
+        if (act === '去登录') {
+            await cmdPlatformLogin('codeforces');
+            return;
+        }
+    }
     const template = String(vscode.workspace.getConfiguration('cf-training-tools').get('pull.template') || 'new.cpp').trim();
     const pullArgs = [url.trim()];
     if (template) pullArgs.push('--template=' + template);
@@ -641,8 +665,11 @@ async function cmdCfLogout() {
 async function cmdPlatformLogin(platform) {
     const info = PLATFORM_LOGIN[platform];
     if (!info) return;
+    const extra = platform === 'codeforces'
+        ? '（公开比赛/公开数据不需要登录；Gym/私有比赛需要 Cookie）'
+        : '（仅私有/个人数据需要登录；公开题面不需要）';
     const action = await vscode.window.showInformationMessage(
-        info.label + ' 登录：先在浏览器登录，然后复制该网站的 Cookie 请求头。',
+        info.label + ' 登录：先在浏览器登录，然后复制该网站的 Cookie 请求头。' + extra,
         '打开登录页', '粘贴 Cookie'
     );
     if (action === '打开登录页') {

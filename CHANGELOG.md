@@ -1,5 +1,10 @@
 # 更新日志
 
+## 0.18.0
+
+- 新增「浏览器登录」：用本机 Edge/Chrome 独立 profile 打开 OJ 登录页，登录态保存在 `training/browser-profile/`（gitignore）
+- 后续浏览器自动提交/抓取可复用该 profile，避免 Cookie/Cloudflare 问题
+
 ## 0.17.1
 
 - 新增 `tools/selftest.js` 基础自检（扩展语法/命令、Companion 写入/缓存、提交识别、样例读取），9/9 通过

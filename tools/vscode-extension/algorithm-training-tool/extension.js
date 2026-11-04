@@ -1114,6 +1114,20 @@ function browserSubmitUrl(platform, rawUrl) {
     return url;
 }
 
+async function cmdBrowserLogin() {
+    const platforms = Object.keys(PLATFORM_LOGIN);
+    const picked = await vscode.window.showQuickPick(platforms.map(function (p) {
+        return { label: PLATFORM_LOGIN[p].label, url: PLATFORM_LOGIN[p].loginUrl, platform: p };
+    }), { placeHolder: '选择要打开登录页的平台（登录态保存在独立浏览器 profile）' });
+    if (!picked) return;
+    const res = await runNode('browser-login.js', [picked.url], '启动浏览器登录…', { cancellable: false });
+    const data = parseLastJson(String(res.stdout || ''));
+    if (!data || !data.ok) {
+        return vscode.window.showWarningMessage('启动浏览器失败：' + ((data && data.message) || '未知错误'));
+    }
+    vscode.window.showInformationMessage('已打开 ' + picked.label + ' 登录页。请在浏览器窗口里登录；登录态会保存在本机，后续浏览器提交/抓取可复用。');
+}
+
 async function cmdSubmitBrowser() {
     const cpp = activeCppPath();
     if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
@@ -1771,6 +1785,7 @@ function sidebarHtml() {
                 { cmd: 'algorithmTraining.accountStatus', label: '检查账号状态', icon: '🔎' },
                 { cmd: 'algorithmTraining.clearCookie', label: '清除平台 Cookie', icon: '🚪' },
                 { cmd: 'algorithmTraining.openCookieFolder', label: '打开 Cookie 目录', icon: '📁' },
+                { cmd: 'algorithmTraining.browserLogin', label: '浏览器登录', icon: '🌐' },
                 { cmd: 'algorithmTraining.setJudgeHandle', label: '设置各平台 handle', icon: '👤' },
                 { cmd: 'algorithmTraining.setHandle', label: '设置 CF handle（旧）', icon: '👤' }
             ]
@@ -2392,6 +2407,7 @@ function activate(context) {
         'algorithmTraining.companion': cmdCompanion,
         'algorithmTraining.setJudgeHandle': cmdSetJudgeHandle,
         'algorithmTraining.aiDebug': cmdAiDebug,
+        'algorithmTraining.browserLogin': cmdBrowserLogin,
         'algorithmTraining.submitBrowser': cmdSubmitBrowser,
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
         'algorithmTraining.aiEditorial': cmdAiEditorial,

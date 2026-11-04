@@ -95,6 +95,31 @@ function accountLineHtml() {
     }).join('　') + '　' + gymStatusHtml();
 }
 
+function accountChipsHtml() {
+    const accounts = readAccounts();
+    const handle = readHandle();
+    const defs = [
+        ['codeforces', 'CF', '🟥', handle],
+        ['luogu', '洛谷', '🟦', ''],
+        ['nowcoder', '牛客', '🟨', ''],
+        ['atcoder', 'AtCoder', '🟪', '']
+    ];
+    return defs.map(function (d) {
+        let nickname = accounts[d[0]] && accounts[d[0]].nickname ? String(accounts[d[0]].nickname) : '';
+        if (!nickname && d[0] === 'codeforces') nickname = handle;
+        return '<span class="acc ' + (nickname ? 'on' : 'off') + '" title="' + escapeHtml(d[1] + (nickname ? '：' + nickname : '：未登录')) + '">' +
+            '<span class="acc-ico">' + d[2] + '</span><span class="acc-name">' + escapeHtml(d[1]) + '</span>' +
+            (nickname ? '<span class="acc-nick">' + escapeHtml(nickname) + '</span>' : '') + '</span>';
+    }).join('');
+}
+
+function gymChipHtml() {
+    const ok = hasCfCookie();
+    return '<span class="chip ' + (ok ? 'ok' : 'warn') + '" title="Gym/私有比赛需要 Codeforces 登录 Cookie">' +
+        '<span class="dot ' + (ok ? 'on' : 'off') + '"></span><span class="chip-key">Gym</span>' +
+        '<span class="chip-val">' + (ok ? '可用' : '需要 CF Cookie') + '</span></span>';
+}
+
 function parseLastJson(text) {
     const lines = String(text || '').split(/\r?\n/).filter(function (l) { return l.trim(); });
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -1152,15 +1177,21 @@ function platformBadge(p) {
 function planSectionHtml() {
     const plan = readPlan();
     if (!plan) {
-        return '<h3>当前题单</h3>\n<div class="empty">还没有题单，点下面「生成/刷新周题单」。</div>\n';
+        return '<div class="card">\n' +
+            '<div class="card-head"><span class="card-icon">📅</span><div><div class="card-title">当前题单</div><div class="card-sub">按弱项 tag + 难度从 CF / AtCoder / 洛谷选题</div></div></div>\n' +
+            '<div class="empty">还没有生成周题单。</div>\n' +
+            '<div class="grid"><button class="btn primary wide" data-cmd="cfTraining.plan"><span class="ico">✨</span><span class="lbl">生成 / 刷新周题单</span></button></div>\n' +
+            '</div>\n';
     }
-    let html = '<h3>当前题单 <span class="muted">' + escapeHtml(plan.problems ? plan.problems.length : 0) + ' 题</span></h3>\n';
+    const problems = plan.problems || [];
+    let html = '<div class="card">\n';
+    html += '<div class="card-head"><span class="card-icon">📅</span><div><div class="card-title">当前题单</div><div class="card-sub">按弱项与难度生成</div></div><span class="count">' + escapeHtml(problems.length) + ' 题</span></div>\n';
     const meta = [];
     if (plan.rating) meta.push('rating ' + escapeHtml(plan.rating));
     if (plan.weakTags && plan.weakTags.length) meta.push('弱项 ' + escapeHtml(plan.weakTags.join(' / ')));
     if (plan.generated) meta.push(escapeHtml(plan.generated));
     if (meta.length) html += '<div class="plan-meta">' + meta.join(' · ') + '</div>\n';
-    const problems = plan.problems || [];
+    html += '<div class="problem-list">\n';
     problems.forEach(function (p) {
         const diffText = p.platform === 'Luogu' ? ('难度' + p.rating) : p.rating;
         html += '<button class="problem" data-url="' + escapeHtml(p.url) + '">' +
@@ -1168,16 +1199,18 @@ function planSectionHtml() {
             '<span class="ptitle">' + escapeHtml(p.title) + '</span>' +
             '<span class="pdiff">' + escapeHtml(diffText) + '</span></button>\n';
     });
-    html += '<div class="row">' +
-        '<button class="small" data-cmd="cfTraining.plan">🔄 刷新</button>' +
-        '<button class="small" data-cmd="cfTraining.openPlan">📄 完整题单</button>' +
+    html += '</div>\n';
+    html += '<div class="grid">' +
+        '<button class="btn small" data-cmd="cfTraining.plan"><span class="ico">🔄</span><span class="lbl">刷新题单</span></button>' +
+        '<button class="btn small" data-cmd="cfTraining.openPlan"><span class="ico">📄</span><span class="lbl">完整题单</span></button>' +
         '</div>\n';
     const redoCount = plan.redoCount || 0;
-    html += '<h3>重做队列 <span class="muted">' + escapeHtml(redoCount) + ' 题</span></h3>\n';
-    html += '<button data-cmd="cfTraining.openRedo">📋 打开重做队列</button>\n';
+    html += '<div class="divider"></div>\n';
+    html += '<div class="mini-head"><span class="card-icon">🔁</span><span class="card-title">重做队列</span><span class="count">' + escapeHtml(redoCount) + ' 题</span></div>\n';
+    html += '<button class="btn" data-cmd="cfTraining.openRedo"><span class="ico">📋</span><span class="lbl">打开重做队列</span></button>\n';
+    html += '</div>\n';
     return html;
 }
-
 function sidebarHtml() {
     const handle = readHandle();
     const nonceSrc = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -1187,100 +1220,165 @@ function sidebarHtml() {
     const aiOn = aiConfigured();
     const envModel = (process.env.AI_API_KEY && process.env.AI_BASE_URL) ? String(process.env.AI_MODEL || '') : '';
     const aiModel = envModel || String(aiCfg.model || 'AI');
-    const aiText = aiOn ? ('已配置 ' + escapeHtml(aiModel)) : '未配置（点下方「设置 AI API」）';
+    const aiText = aiOn ? ('已配置 · ' + aiModel) : '未配置';
+
     const groups = [
         {
-            title: 'AI 助手',
+            title: '快速开始', icon: '⚡', sub: '抓题 · 自测 · 提交', open: true,
             items: [
-                { cmd: 'cfTraining.aiHint', label: '💡 AI 提示（当前题）', primary: true },
-                { cmd: 'cfTraining.aiAsk', label: '❓ 问 AI（当前题）' },
-                { cmd: 'cfTraining.aiReview', label: '🧠 AI 复盘（选比赛）' },
-                { cmd: 'cfTraining.aiTranslate', label: '🌐 AI 翻译当前题面' },
-                { cmd: 'cfTraining.aiConfig', label: '⚙️ 设置 AI API' },
-                { cmd: 'cfTraining.aiTest', label: '🔌 测试 AI 连接' },
-                { cmd: 'cfTraining.aiSettings', label: '🧰 在 VS Code 设置中编辑' }
+                { cmd: 'cfTraining.pullContest', label: '抓取整场比赛', icon: '📥', primary: true, wide: true },
+                { cmd: 'cfTraining.pullProblem', label: '抓取单个题目', icon: '📄' },
+                { cmd: 'cfTraining.sampleTests', label: '样例自测（计分）', icon: '🧪', primary: true },
+                { cmd: 'cfTraining.submit', label: '提交到 OJ', icon: '🚀', primary: true },
+                { cmd: 'cfTraining.samples', label: '编译并跑样例', icon: '▶️' },
+                { cmd: 'cfTraining.build', label: '只编译', icon: '🔨' }
             ]
         },
         {
-            title: '训练',
+            title: '题面', icon: '📖', sub: '预览 / 重新抓取', open: true,
             items: [
-                { cmd: 'cfTraining.pullContest', label: '📥 抓取整场比赛（CF/洛谷/牛客/AtCoder）', primary: true },
-                { cmd: 'cfTraining.pullProblem', label: '📥 抓取单个题目' },
-                { cmd: 'cfTraining.pullTemplate', label: '🧩 设置拉题初始模板' },
-                { cmd: 'cfTraining.plan', label: '📅 生成 / 刷新周题单', primary: true },
-                { cmd: 'cfTraining.reviewLatest', label: '🧾 复盘最近一场', primary: true },
-                { cmd: 'cfTraining.reviewInput', label: '🔍 复盘指定比赛…' }
+                { cmd: 'cfTraining.statementOpen', label: '打开当前题面', icon: '📖' },
+                { cmd: 'cfTraining.statementNow', label: '重新抓取题面', icon: '🔄' }
             ]
         },
         {
-            title: '题面',
+            title: '训练计划', icon: '📅', sub: '复盘 / 模板', open: true,
             items: [
-                { cmd: 'cfTraining.statementOpen', label: '📖 打开当前题面预览' },
-                { cmd: 'cfTraining.statementNow', label: '🔄 重新抓取当前题面' },
+                { cmd: 'cfTraining.reviewLatest', label: '复盘最近一场', icon: '🧾', primary: true },
+                { cmd: 'cfTraining.reviewInput', label: '复盘指定比赛', icon: '🔍' },
+                { cmd: 'cfTraining.pullTemplate', label: '拉题初始模板', icon: '🧩' }
             ]
         },
         {
-            title: '代码',
+            title: 'AI 助手', icon: '🤖', sub: aiText, open: false,
             items: [
-                { cmd: 'cfTraining.sampleTests', label: '🧪 样例自测（计分）', primary: true },
-                { cmd: 'cfTraining.submit', label: '🚀 提交当前题到 OJ', primary: true },
-                { cmd: 'cfTraining.samples', label: '▶️ 编译并跑样例' },
-                { cmd: 'cfTraining.build', label: '🔨 只编译' }
+                { cmd: 'cfTraining.aiHint', label: 'AI 提示', icon: '💡', primary: true },
+                { cmd: 'cfTraining.aiAsk', label: '问 AI', icon: '❓' },
+                { cmd: 'cfTraining.aiReview', label: 'AI 复盘', icon: '🧠' },
+                { cmd: 'cfTraining.aiTranslate', label: '翻译题面', icon: '🌐' },
+                { cmd: 'cfTraining.aiConfig', label: '设置 AI API', icon: '⚙️' },
+                { cmd: 'cfTraining.aiTest', label: '测试 AI 连接', icon: '🔌' }
             ]
         },
         {
-            title: '账号登录',
+            title: '账号', icon: '👤', sub: '登录 / 状态', open: false,
             items: [
-                { cmd: 'cfTraining.loginCodeforces', label: '🔐 登录 Codeforces', primary: true },
-                { cmd: 'cfTraining.loginLuogu', label: '🔐 登录 洛谷' },
-                { cmd: 'cfTraining.loginNowcoder', label: '🔐 登录 牛客' },
-                { cmd: 'cfTraining.loginAtcoder', label: '🔐 登录 AtCoder' },
-                { cmd: 'cfTraining.accountStatus', label: '🔎 检查账号状态' },
-                { cmd: 'cfTraining.cfLoginCheck', label: '✅ 检查 CF Cookie' },
-                { cmd: 'cfTraining.cfLogout', label: '🚪 清除 CF Cookie' },
-                { cmd: 'cfTraining.setHandle', label: '👤 设置 CF handle' },
-                { cmd: 'cfTraining.openDoc', label: '❓ 打开训练手册' }
+                { cmd: 'cfTraining.loginCodeforces', label: '登录 Codeforces', icon: '🟥' },
+                { cmd: 'cfTraining.loginLuogu', label: '登录 洛谷', icon: '🟦' },
+                { cmd: 'cfTraining.loginNowcoder', label: '登录 牛客', icon: '🟨' },
+                { cmd: 'cfTraining.loginAtcoder', label: '登录 AtCoder', icon: '🟪' },
+                { cmd: 'cfTraining.accountStatus', label: '检查账号状态', icon: '🔎' },
+                { cmd: 'cfTraining.setHandle', label: '设置 CF handle', icon: '👤' }
+            ]
+        },
+        {
+            title: '设置 / 帮助', icon: '⚙️', sub: '维护', open: false,
+            items: [
+                { cmd: 'cfTraining.cfLoginCheck', label: '检查 CF Cookie', icon: '✅' },
+                { cmd: 'cfTraining.cfLogout', label: '清除 CF Cookie', icon: '🚪' },
+                { cmd: 'cfTraining.aiSettings', label: 'AI 设置页', icon: '🧰' },
+                { cmd: 'cfTraining.openDoc', label: '训练手册', icon: '❓' }
             ]
         }
     ];
+
     let body = '';
     groups.forEach(function (g) {
-        body += '<h3>' + escapeHtml(g.title) + '</h3>';
+        body += '<details class="card group"' + (g.open ? ' open' : '') + '>' +
+            '<summary><span class="card-icon">' + escapeHtml(g.icon) + '</span>' +
+            '<span class="card-title">' + escapeHtml(g.title) + '</span>' +
+            (g.sub ? '<span class="card-sub">' + escapeHtml(g.sub) + '</span>' : '') +
+            '<span class="chev">›</span></summary><div class="grid">';
         g.items.forEach(function (it) {
-            body += '<button' + (it.primary ? ' class="primary"' : '') + ' data-cmd="' + escapeHtml(it.cmd) + '">' + escapeHtml(it.label) + '</button>';
+            body += '<button class="btn' + (it.primary ? ' primary' : '') + (it.wide ? ' wide' : '') +
+                '" data-cmd="' + escapeHtml(it.cmd) + '" title="' + escapeHtml(it.label) + '">' +
+                '<span class="ico">' + escapeHtml(it.icon || '•') + '</span>' +
+                '<span class="lbl">' + escapeHtml(it.label) + '</span></button>';
         });
+        body += '</div></details>';
     });
+
+    const hero = '<div class="hero">' +
+        '<div class="brand"><div class="logo">🏆</div><div class="brand-text">' +
+        '<div class="app-name">CF 训练工具</div>' +
+        '<div class="app-sub">Codeforces · 洛谷 · 牛客 · AtCoder</div></div></div>' +
+        '<div class="chips">' +
+        '<span class="chip"><span class="chip-key">handle</span><span class="chip-val">' + escapeHtml(handle || '未设置') + '</span></span>' +
+        '<span class="chip"><span class="dot ' + (aiOn ? 'on' : 'off') + '"></span><span class="chip-key">AI</span><span class="chip-val">' + escapeHtml(aiText) + '</span></span>' +
+        gymChipHtml() +
+        '</div>' +
+        '<div class="accounts"><span class="accounts-label">账号：</span>' + accountChipsHtml() + '</div>' +
+        '</div>\n';
+
     return '<!DOCTYPE html>\n' +
         '<html lang="zh-CN"><head><meta charset="utf-8">\n' +
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'nonce-' + nonce + '\';">\n' +
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
         '<style>\n' +
-        'body { padding: 4px 12px 16px; color: var(--vscode-foreground); font-family: var(--vscode-font-family); font-size: 13px; }\n' +
-        '.meta { opacity: .75; margin: 8px 0 4px; line-height: 1.6; }\n' +
-        '.meta code { background: var(--vscode-textCodeBlock-background); padding: 1px 4px; border-radius: 3px; }\n' +
-        'h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .65; margin: 18px 0 6px; }\n' +
-        'h3 .muted, .muted { text-transform: none; letter-spacing: 0; opacity: .7; font-weight: 400; }\n' +
-        'button { display: block; width: 100%; margin: 4px 0; padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; text-align: left; font-size: 13px; font-family: inherit; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }\n' +
-        'button:hover { background: var(--vscode-button-secondaryHoverBackground); }\n' +
-        'button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }\n' +
-        'button.primary:hover { background: var(--vscode-button-hoverBackground); }\n' +
-        'button:active { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }\n' +
-        'button.problem { display: flex; align-items: baseline; gap: 6px; background: transparent; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); padding: 6px 8px; }\n' +
+        '* { box-sizing: border-box; }\n' +
+        'body { padding: 10px 10px 18px; margin: 0; color: var(--vscode-foreground); font-family: var(--vscode-font-family); font-size: 12.5px; }\n' +
+        '.hero { padding: 12px 12px 10px; border-radius: 10px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25)); background: linear-gradient(135deg, rgba(56,139,253,.14), rgba(163,113,247,.10)); margin-bottom: 10px; }\n' +
+        '.brand { display: flex; align-items: center; gap: 9px; }\n' +
+        '.logo { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 20px; background: rgba(255,255,255,.10); }\n' +
+        '.brand-text { min-width: 0; }\n' +
+        '.app-name { font-size: 15px; font-weight: 700; letter-spacing: .01em; }\n' +
+        '.app-sub { font-size: 10.5px; opacity: .6; margin-top: 1px; }\n' +
+        '.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }\n' +
+        '.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; background: rgba(128,128,128,.12); border: 1px solid rgba(128,128,128,.18); max-width: 100%; }\n' +
+        '.chip-key { opacity: .6; }\n' +
+        '.chip-val { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }\n' +
+        '.chip.warn { border-color: rgba(210,153,34,.45); }\n' +
+        '.dot { width: 6px; height: 6px; border-radius: 50%; background: #888; flex: 0 0 auto; }\n' +
+        '.dot.on { background: #3fb950; }\n' +
+        '.dot.off { background: #d29922; }\n' +
+        '.accounts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 7px; }\n' +
+        '.accounts-label { font-size: 10.5px; opacity: .55; margin-right: 1px; }\n' +
+        '.acc { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 5px; font-size: 10.5px; background: rgba(128,128,128,.10); border: 1px solid transparent; max-width: 100%; }\n' +
+        '.acc.on { border-color: rgba(63,185,80,.35); }\n' +
+        '.acc.off { opacity: .55; }\n' +
+        '.acc-ico { font-size: 8px; }\n' +
+        '.acc-name { font-weight: 600; }\n' +
+        '.acc-nick { opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 78px; }\n' +
+        '.card { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.22)); border-radius: 8px; padding: 9px 9px 8px; margin: 7px 0; background: rgba(128,128,128,.045); }\n' +
+        '.card-head, .mini-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }\n' +
+        '.card-icon { font-size: 13px; flex: 0 0 auto; }\n' +
+        '.card-title { font-size: 12px; font-weight: 650; }\n' +
+        '.card-sub { font-size: 10.5px; opacity: .55; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
+        '.count { margin-left: auto; font-size: 10px; opacity: .65; background: rgba(128,128,128,.15); padding: 1px 6px; border-radius: 999px; flex: 0 0 auto; }\n' +
+        '.plan-meta { font-size: 10.5px; opacity: .6; margin: 0 0 6px; line-height: 1.5; }\n' +
+        '.empty { opacity: .6; font-size: 11px; margin: 2px 0 7px; }\n' +
+        '.problem-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 7px; }\n' +
+        'button.problem { display: flex; align-items: center; gap: 6px; width: 100%; margin: 0; padding: 5px 7px; text-align: left; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--vscode-foreground); cursor: pointer; font-family: inherit; font-size: 11.5px; }\n' +
         'button.problem:hover { background: var(--vscode-list-hoverBackground); }\n' +
-        '.badge { flex: 0 0 auto; font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 3px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }\n' +
+        '.badge { flex: 0 0 auto; font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }\n' +
         '.ptitle { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
-        '.pdiff { flex: 0 0 auto; opacity: .65; font-size: 12px; }\n' +
-        '.plan-meta { opacity: .65; font-size: 12px; margin: 2px 0 8px; line-height: 1.5; }\n' +
-        '.empty { opacity: .65; margin: 4px 0 8px; }\n' +
-        '.row { display: flex; gap: 6px; }\n' +
-        '.row button { flex: 1; text-align: center; }\n' +
-        'button.small { padding: 5px 8px; font-size: 12px; }\n' +
-        '.hint { opacity: .6; margin-top: 14px; font-size: 12px; line-height: 1.5; }\n' +
+        '.pdiff { flex: 0 0 auto; opacity: .55; font-size: 10.5px; }\n' +
+        '.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }\n' +
+        '.btn { display: flex; align-items: center; gap: 5px; width: 100%; min-height: 30px; padding: 5px 7px; margin: 0; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.20)); border-radius: 6px; cursor: pointer; text-align: left; font-size: 11.5px; font-family: inherit; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }\n' +
+        '.btn:hover { background: var(--vscode-button-secondaryHoverBackground); }\n' +
+        '.btn:active { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }\n' +
+        '.btn.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border-color: transparent; }\n' +
+        '.btn.primary:hover { background: var(--vscode-button-hoverBackground); }\n' +
+        '.btn.wide { grid-column: 1 / -1; }\n' +
+        '.btn.small { min-height: 27px; font-size: 11px; }\n' +
+        '.btn .ico { flex: 0 0 auto; font-size: 12px; line-height: 1; }\n' +
+        '.btn .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
+        '.divider { height: 1px; background: var(--vscode-panel-border, rgba(128,128,128,.22)); margin: 8px 0; }\n' +
+        'details.group { padding: 0; }\n' +
+        'details.group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 8px 9px; margin: 0; user-select: none; }\n' +
+        'details.group > summary::-webkit-details-marker { display: none; }\n' +
+        'details.group > summary:hover { background: rgba(128,128,128,.08); border-radius: 7px; }\n' +
+        'details.group[open] > summary { border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.18)); border-radius: 7px 7px 0 0; margin-bottom: 8px; }\n' +
+        'details.group > .grid { padding: 0 9px 9px; }\n' +
+        '.chev { margin-left: auto; opacity: .45; font-size: 15px; transition: transform .12s ease; }\n' +
+        'details.group[open] .chev { transform: rotate(90deg); }\n' +
+        '.hint { opacity: .5; margin-top: 12px; font-size: 10.5px; line-height: 1.5; }\n' +
+        '.muted { opacity: .7; }\n' +
         '</style></head><body>\n' +
-        '<div class="meta">handle：<code>' + escapeHtml(handle || '（未设置）') + '</code>　AI：<code>' + aiText + '</code><br>账号：' + accountLineHtml() + '</div>\n' +
+        hero +
         planSectionHtml() +
         body + '\n' +
-        '<div class="hint">题面 / 编译按钮需要先在编辑器打开对应 .cpp 文件。题单里的题目点一下会在浏览器打开。</div>\n' +
+        '<div class="hint">题面 / 编译 / 提交按钮需要先在编辑器打开对应 .cpp 文件。题单里的题目点一下会在浏览器打开。</div>\n' +
         '<script nonce="' + nonce + '">\n' +
         'const vscode = acquireVsCodeApi();\n' +
         'document.querySelectorAll(\'button[data-cmd]\').forEach(function (b) {\n' +
@@ -1291,7 +1389,6 @@ function sidebarHtml() {
         '});\n' +
         '</script></body></html>';
 }
-
 function samplesHtml(state) {
     const nonceSrc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let nonce = '';

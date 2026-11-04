@@ -55,15 +55,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\cf-review.ps1 -Contest
 
 ## VS Code 插件（已装好）
 
-- **左侧活动栏 🎓 图标「CF 训练」**：面板顶部就是**当前题单**（本周题单里的题，点一下直接在浏览器打开；CF/AtCoder/洛谷都有），下面是分组按钮
-- 左下角状态栏「CF 训练」：弹出命令菜单
-- `Ctrl+Shift+P` 搜 `CF 训练`：命令面板
+- **左侧活动栏 🎓 图标「算法训练」**：面板顶部就是**当前题单**（本周题单里的题，点一下直接在浏览器打开；CF/AtCoder/洛谷都有），下面是分组按钮
+- 左下角状态栏「算法训练」：弹出命令菜单
+- `Ctrl+Shift+P` 搜 `算法训练`：命令面板
 
 面板里的按钮：生成/刷新周题单（三平台选题）、复盘最近一场、复盘指定比赛、打开/重新抓取当前题面、全部题面重生成、编译并跑样例、只编译、设置 CF handle、CPH 补丁状态/重打/回滚、打开训练手册。
 
 题单来源：**Codeforces**（弱项 tag + rating）、**AtCoder**（kenkoooo 题库 + difficulty）、**洛谷**（题库 difficulty 3/4）；默认数量 CF 占一半，其余两平台均分，某平台失败自动 CF 补位。
 
-插件源码在 `tools/vscode-extension/cf-training-tools/`，安装/更新/卸载：
+插件源码在 `tools/vscode-extension/algorithm-training-tool/`，安装/更新/卸载：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extension.ps1
@@ -80,7 +80,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 > DeepSeek 当前支持的模型名是 `deepseek-flash` / `deepseek-v4-pro`；填错时客户端会读服务端返回的可用列表自动改用一个能用的模型（仅本次调用），然后提示你更新配置。
 
-- 最方便：VS Code 面板点 **「⚙️ 设置 AI API」**（保存后会自动提示测试连接）；或者 `Ctrl+,` 搜 `CF 训练`，在设置页填 `cf-training-tools.ai.baseUrl / ai.model / ai.apiKey`
+- 最方便：VS Code 面板点 **「⚙️ 设置 AI API」**（保存后会自动提示测试连接）；或者 `Ctrl+,` 搜 `算法训练`，在设置页填 `algorithm-training-tool.ai.baseUrl / ai.model / ai.apiKey`
 - 左下角状态栏有 **$(sparkle) AI 已配置 / AI 未配置**，点一下直接改
 - 两种方式都会同步写入 `training/ai-config.json`（脚本读这个文件），key 只存本地
 - 配好后：
@@ -105,8 +105,8 @@ node tools\pull-contest.js https://codeforces.com/contest/2278/problem/A --singl
 ```
 
 - 每道题生成 `题面.md` + 从**初始模板**复制的 `.cpp` + 结构化题面数据 `.json` + CPH `.cph` 样例缓存（`cp.ps1 samples`、CPH 按钮都能跑样例）；整场还会生成 `contest.json`
-- 抓取时进度条可点**取消**；抓取完可「选择题目打开」，自动分屏题面 md（打开有同名 md 的 cpp 也会自动分屏，可用设置 cf-training-tools.autoStatementPreview=false 关闭）\n- 默认跳过已有 md；`--force` 覆盖，`--only=A,B` 只抓部分，`--out=<dir>` 指定输出目录，`--no-cpp` 只抓题面
-- **初始模板**：默认 `new.cpp`；`--template=<文件>` / 插件设置 `cf-training-tools.pull.template` / `training/pull-config.json` 三选一（见项目 README）
+- 抓取时进度条可点**取消**；抓取完可「选择题目打开」，自动分屏题面 md（打开有同名 md 的 cpp 也会自动分屏，可用设置 algorithm-training-tool.autoStatementPreview=false 关闭）\n- 默认跳过已有 md；`--force` 覆盖，`--only=A,B` 只抓部分，`--out=<dir>` 指定输出目录，`--no-cpp` 只抓题面
+- **初始模板**：默认 `new.cpp`；`--template=<文件>` / 插件设置 `algorithm-training-tool.pull.template` / `training/pull-config.json` 三选一（见项目 README）
 - 插件面板「📥 抓取整场比赛」/「📥 抓取单个题目」同款；洛谷比赛题会自动带 `?contestId=`，牛客自动探测 A..Z 题号
 - **Codeforces**：正赛用 CF API 枚举；题面页被 Cloudflare 403 时自动改用洛谷镜像 `CF<id><index>` 抓取。**Gym/私有比赛需要登录，不支持整场抓取**。
 

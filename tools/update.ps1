@@ -18,7 +18,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 
-Write-Host '=== CF 训练工具 · 更新 ===' -ForegroundColor Cyan
+Write-Host '=== 算法训练工具 · 更新 ===' -ForegroundColor Cyan
 Write-Host ('仓库: ' + $root)
 
 if (-not $SkipPull) {
@@ -46,7 +46,7 @@ if (-not $NoExtension) {
 }
 
 if (-not $NoPatch) {
-    Write-Host 'CPH 已卸载，跳过补丁步骤（题目/样例由 CF 训练工具自带功能处理）。'
+    Write-Host 'CPH 已卸载，跳过补丁步骤（题目/样例由 算法训练工具自带功能处理）。'
 }
 
 Write-Host ''

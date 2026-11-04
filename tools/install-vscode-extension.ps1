@@ -1,5 +1,5 @@
-# tools/install-vscode-extension.ps1
-# Install (or uninstall) the local "CF Training Tools" VS Code extension.
+﻿# tools/install-vscode-extension.ps1
+# Install (or uninstall) the local "Algorithm Training Tool" VS Code extension.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extension.ps1
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extension.ps1 -Uninstall
@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$src = Join-Path $PSScriptRoot 'vscode-extension\cf-training-tools'
+$src = Join-Path $PSScriptRoot 'vscode-extension\algorithm-training-tool'
 $extRoot = Join-Path $env:USERPROFILE '.vscode\extensions'
 
 if (-not (Test-Path -LiteralPath $extRoot)) {
@@ -47,7 +47,7 @@ function Update-Registry {
         foreach ($entry in $arr) {
             $id = ''
             if ($null -ne $entry.identifier) { $id = [string]$entry.identifier.id }
-            if ($id -match '(^|\.)cf-training-tools$') {
+            if ($id -match '(^|\.)(algorithm-training-tool|cf-training-tools)$') {
                 $found = $true
                 if ($Remove) { continue }
                 $entry.version = $Version
@@ -76,7 +76,7 @@ function Update-Registry {
 
 # Remove every version of the local extension first (any publisher id).
 $oldDirs = @(Get-ChildItem -LiteralPath $extRoot -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -like '*cf-training-tools-*' })
+    Where-Object { $_.Name -like '*algorithm-training-tool-*' -or $_.Name -like '*cf-training-tools-*' })
 foreach ($d in $oldDirs) {
     Remove-Item -LiteralPath $d.FullName -Recurse -Force
     Write-Host ('REMOVED  ' + $d.FullName)
@@ -108,5 +108,5 @@ Update-Registry -ExtRoot $extRoot -DestName $destName -Version ([string]$pkg.ver
 Write-Host ('INSTALLED  ' + $dest)
 Write-Host ('VERSION    ' + [string]$pkg.version)
 Write-Host 'Next: Ctrl+Shift+P -> Developer: Reload Window (or fully restart VS Code)'
-Write-Host 'Then: activity bar icon "CF 训练" (left side), status bar "CF 训练", or command palette "CF 训练: 训练菜单"'
+Write-Host 'Then: activity bar icon "算法训练" (left side), status bar "算法训练", or command palette "算法训练: 训练菜单"'
 exit 0

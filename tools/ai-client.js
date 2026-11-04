@@ -43,6 +43,8 @@ function parseArgs(argv) {
         else if (a === '--cpp') { flags.cpp = argv[++i]; }
         else if (a === '--cpp-label') { flags.cppLabel = argv[++i]; }
         else if (a === '--question') { flags.question = argv[++i]; }
+        else if (a === '--error') { flags.error = argv[++i]; }
+        else if (a === '--pseudo') { flags.pseudo = argv[++i]; }
         else if (a.indexOf('--') === 0) { /* ignore unknown flag */ }
         else { pos.push(a); }
     }
@@ -227,6 +229,81 @@ async function cmdAsk(flags) {
     return 0;
 }
 
+async function cmdDebug(flags) {
+    const md = flags.md || '';
+    const statement = md ? readText(md, 9000) : '';
+    const code = flags.cpp ? readText(flags.cpp, 8000) : '';
+    if (!statement && !code) { console.error('debug 需要 --md 或 --cpp'); return 2; }
+    const err = String(flags.error || '').trim();
+    const out = await ai.chat([
+        {
+            role: 'system',
+            content: '你是算法竞赛教练。用户做错了题，请根据题面、当前代码和用户描述的症状定位错误。\n' +
+                '要求：只指出问题和最可能的修法，不要直接给完整可提交代码。\n' +
+                '输出 Markdown：\n' +
+                '## 错误判断\n（WA / RE / TLE / 编译错误 / 思路错，选最可能的）\n' +
+                '## 最可能原因\n（结合具体代码位置说明）\n' +
+                '## 定位\n（函数/变量/边界条件；不要贴整份正确代码）\n' +
+                '## 验证方法\n（构造什么小数据或检查什么）\n' +
+                '## 最小修改建议\n（伪代码或一两行方向，不要完整代码）'
+        },
+        {
+            role: 'user',
+            content: '## 题面\n\n' + (statement || '（无题面）') +
+                '\n\n## 当前代码\n\n' + (code && code.trim() ? '```cpp\n' + code + '\n```' : '（还没写代码）') +
+                '\n\n## 用户描述的错误/症状\n\n' + (err || '（未填写；请根据代码和题面推断最可能的错误）')
+        }
+    ], { temperature: 0.25 });
+    writeOut(out, flags);
+    return 0;
+}
+
+async function cmdPseudocode(flags) {
+    const pseudo = flags.pseudo ? readText(flags.pseudo, 5000) : '';
+    if (!pseudo.trim()) { console.error('pseudocode 需要 --pseudo <伪代码文件>'); return 2; }
+    const statement = flags.md ? readText(flags.md, 9000) : '';
+    const code = flags.cpp ? readText(flags.cpp, 5000) : '';
+    const out = await ai.chat([
+        {
+            role: 'system',
+            content: '你是算法竞赛教练。用户在做题前写了简要伪代码/口胡思路，请判断它是否可行。\n' +
+                '要求：不要直接给完整代码；不要泛泛而谈。输出 Markdown：\n' +
+                '## 思路判断\n（可行 / 方向对但有漏洞 / 不可行，说明理由）\n' +
+                '## 反例与漏洞\n（尽量给具体反例；没有反例就写无）\n' +
+                '## 复杂度\n（时间/空间，是否满足题目限制）\n' +
+                '## 需要补的细节\n（状态定义、边界、实现顺序）\n' +
+                '## 结论\n（现在能不能直接写；不能的话先补哪一步）'
+        },
+        {
+            role: 'user',
+            content: '## 题面\n\n' + (statement || '（无题面）') +
+                '\n\n## 用户伪代码 / 口胡\n\n' + pseudo +
+                (code && code.trim() ? '\n\n## 当前代码（供参考）\n\n```cpp\n' + code + '\n```' : '')
+        }
+    ], { temperature: 0.3 });
+    writeOut(out, flags);
+    return 0;
+}
+
+async function cmdEditorial(flags) {
+    const md = flags.md || '';
+    if (!md) { console.error('editorial 需要 --md <题面.md>'); return 2; }
+    const statement = readText(md, 12000);
+    if (!statement) { console.error('读不到题面: ' + md); return 1; }
+    const out = await ai.chat([
+        {
+            role: 'system',
+            content: '你是算法竞赛题解作者。根据题面写一篇中文题解，面向正在训练的用户。\n' +
+                '输出 Markdown：\n' +
+                '## 题意\n## 关键观察\n## 算法\n## 正确性说明\n## 复杂度\n## 实现细节与易错点\n## 类似题/延伸\n' +
+                '不要直接给完整可提交代码；可以给伪代码。不要编造题面没有的限制。'
+        },
+        { role: 'user', content: '## 题面\n\n' + statement }
+    ], { temperature: 0.35 });
+    writeOut(out, flags);
+    return 0;
+}
+
 async function main() {
     const parsed = parseArgs(process.argv.slice(2));
     const flags = parsed.flags;
@@ -244,6 +321,9 @@ async function main() {
     }
     if (cmd === 'hint') return cmdHint(flags);
     if (cmd === 'ask') return cmdAsk(flags);
+    if (cmd === 'debug') return cmdDebug(flags);
+    if (cmd === 'pseudocode') return cmdPseudocode(flags);
+    if (cmd === 'editorial') return cmdEditorial(flags);
     usage();
     return 2;
 }

@@ -1,4 +1,4 @@
-# CF Training Tools（本地 VS Code 插件）
+# Algorithm Training Tool（本地 VS Code 插件）
 
 把本工作区 `tools/` 下的训练脚本包成 VS Code 命令 / 按钮，避免每次手敲 PowerShell。
 
@@ -17,9 +17,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 ## 三种入口
 
-1. **活动栏图标**（左侧竖条，🎓 图标 →「CF 训练」）：点开就是按钮面板，点按钮直接运行
-2. **状态栏**左下角「🎓 CF 训练」：弹出命令菜单
-3. **命令面板**：`Ctrl+Shift+P` 搜 `CF 训练`
+1. **活动栏图标**（左侧竖条，🎓 图标 →「算法训练」）：点开就是按钮面板，点按钮直接运行
+2. **状态栏**左下角「🎓 算法训练」：弹出命令菜单
+3. **命令面板**：`Ctrl+Shift+P` 搜 `算法训练`
 
 ## 面板里有什么
 
@@ -60,7 +60,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extensi
 
 初始模板默认是仓库根目录的 `new.cpp`，可以这样改：
 - 面板「🧩 设置拉题初始模板」→ 选一个 `.cpp` 文件
-- VS Code 设置 `cf-training-tools.pull.template`（相对路径或绝对路径）
+- VS Code 设置 `algorithm-training-tool.pull.template`（相对路径或绝对路径）
 - 命令行 `--template=<文件>`，或 `training/pull-config.json` 里的 `"template"`
 
 > Codeforces 题面页有 Cloudflare 防护，`cph-statement.js` 会在 403 时自动改用洛谷镜像 `luogu.com.cn/problem/CF<contestId><index>` 抓题面；Gym/私有比赛仍需要登录。
@@ -79,7 +79,7 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 - 提交成功显示提交记录链接，可在浏览器打开
 ## 账号登录
 
-活动栏「CF 训练」→「账号登录」：
+活动栏「算法训练」→「账号登录」：
 
 - **登录 Codeforces / 洛谷 / 牛客 / AtCoder**：点按钮 → 「打开登录页」先在浏览器登录 → 回来点「粘贴 Cookie」→ 粘贴对应网站的 Cookie 请求头
 - 登录成功后自动读取昵称并显示在面板顶部「账号：」一行；CF 同时会更新 handle
@@ -87,14 +87,14 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 - Cookie 只保存在本机 `training/cf-cookies.txt` / `training/cookies.<platform>.txt`，已 gitignore
 ## 样例自测（计分）
 
-活动栏「CF 训练」→「样例自测」块：读取当前题目的 `.cph` 缓存或 `<题号>.json`，点「▶ 运行全部测试」编译并逐题运行，显示**样例/自定义通过数、总得分、百分比**；每个测试点可直接编辑输入/期望输出、单测运行并保存。每个测试点都可以**实时编辑**输入/期望输出：点「▶ 运行此测试」只跑这一条，点「▶ 运行全部测试」会先自动保存所有编辑再跑（样例修改存 `<题号>.sample-overrides.json`，自定义存 `<题号>.custom-tests.json`）。打开/切换 `.cpp` 时面板自动刷新，不需要手动「重新读取」。
+活动栏「算法训练」→「样例自测」块：读取当前题目的 `.cph` 缓存或 `<题号>.json`，点「▶ 运行全部测试」编译并逐题运行，显示**样例/自定义通过数、总得分、百分比**；每个测试点可直接编辑输入/期望输出、单测运行并保存。每个测试点都可以**实时编辑**输入/期望输出：点「▶ 运行此测试」只跑这一条，点「▶ 运行全部测试」会先自动保存所有编辑再跑（样例修改存 `<题号>.sample-overrides.json`，自定义存 `<题号>.custom-tests.json`）。打开/切换 `.cpp` 时面板自动刷新，不需要手动「重新读取」。
 
 ## AI 助手（OpenAI 兼容 API）
 
 **三个地方都能设置，任选一个：**
 
 1. 面板「AI 助手」分组 → **⚙️ 设置 AI API**（弹输入框：baseUrl → 选模型 → API Key → 自动提示测试连接）
-2. 面板「🧰 在 VS Code 设置中编辑」或 `Ctrl+,` 搜 `CF 训练`（配置项 `cf-training-tools.ai.baseUrl / ai.model / ai.apiKey / ai.temperature`）
+2. 面板「🧰 在 VS Code 设置中编辑」或 `Ctrl+,` 搜 `算法训练`（配置项 `algorithm-training-tool.ai.baseUrl / ai.model / ai.apiKey / ai.temperature`）
 3. 直接编辑 `training/ai-config.json`
 
 左下角状态栏会显示 **$(sparkle) AI 已配置 / AI 未配置**，点一下就能改。DeepSeek 当前模型名是 `deepseek-flash` / `deepseek-v4-pro`。
@@ -111,14 +111,14 @@ Gym/私有比赛需要登录：浏览器登录并报名后，面板「设置 / �
 
 ## 题面自动预览
 
-- 打开任何有同名 .md 的 .cpp 时，会自动在侧边分屏题面预览；VS Code 设置 cf-training-tools.autoStatementPreview=false 可关闭
+- 打开任何有同名 .md 的 .cpp 时，会自动在侧边分屏题面预览；VS Code 设置 algorithm-training-tool.autoStatementPreview=false 可关闭
 
 - 拉题后题面 md 生成完会自动在右侧打开预览，但**只对当前正在编辑的那道题生效**：整场拉题（一次拉很多题）时不会弹出一堆预览，只有最后一个正在编辑的题目会开
 - 30 秒内同一份题面不会重复弹预览
-- 想彻底关掉：VS Code 设置里把 `cf-training-tools.autoPreview` 设为 `false`（或用 `Ctrl+,` 搜 `CF 训练`）
+- 想彻底关掉：VS Code 设置里把 `algorithm-training-tool.autoPreview` 设为 `false`（或用 `Ctrl+,` 搜 `算法训练`）
 
 ## 说明
 
 - 需要打开本工作区根目录（扩展按 `workspaceFolders[0]` 找 `tools/`）
-- 所有输出在 **输出** 面板的「CF 训练工具」频道
+- 所有输出在 **输出** 面板的「算法训练工具」频道
 - 改完源码后跑一次 `install-vscode-extension.ps1` 再 Reload

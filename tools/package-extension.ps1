@@ -12,7 +12,7 @@ param(
 #
 # Build:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\package-extension.ps1
-#   -> dist\cf-training-tools-<version>.vsix
+#   -> dist\algorithm-training-tool-<version>.vsix
 #   Install it with: VS Code -> Extensions -> ... -> Install from VSIX
 #
 # Publish (requires a Marketplace publisher + Azure DevOps PAT with Marketplace:Manage scope):
@@ -21,12 +21,12 @@ param(
 #   optional: -Version 0.6.1
 #
 # Open VSX (VSCodium etc.):
-#   npx --yes ovsx publish dist\cf-training-tools-<version>.vsix -p <openvsx-token>
+#   npx --yes ovsx publish dist\algorithm-training-tool-<version>.vsix -p <openvsx-token>
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$extDir = Join-Path $PSScriptRoot 'vscode-extension\cf-training-tools'
+$extDir = Join-Path $PSScriptRoot 'vscode-extension\algorithm-training-tool'
 if (-not (Test-Path -LiteralPath (Join-Path $extDir 'package.json'))) {
     throw ('extension source not found: ' + $extDir)
 }

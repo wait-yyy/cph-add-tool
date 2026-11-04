@@ -1,4 +1,4 @@
-# CF 训练助手 · 算法竞赛工作区工具包
+# 算法训练助手 · 算法竞赛工作区工具包
 
 一套 Windows + VS Code 的算法竞赛（Codeforces / AtCoder / 洛谷 / 牛客）训练工具：
 拉题自动建目录并抓题面、中英对照 Markdown、AI 提示/复盘、周题单、赛后复盘、整场比赛一键抓取，以及一个活动栏面板把这些操作变成按钮。
@@ -23,7 +23,7 @@ node tools\pull-contest.js https://ac.nowcoder.com/acm/contest/85333
 
 也可以直接在 VS Code 面板点「📥 抓取整场比赛」或「📥 抓取单个题目」，粘贴链接即可；单个题目拉完会直接打开 cpp + 题面 md 两栏。
 
-抓取过程中进度通知上有 **取消按钮**，可随时中断（已生成的文件保留）；抓取完成后可点「选择题目打开」→ 打开 cpp 并分屏题面 md；打开任何有同名 .md 的 .cpp 也会自动分屏题面预览。打开题目时会强制两栏布局：左侧 cpp、右侧题面 md（设置 `cf-training-tools.forceTwoColumnSplit=false` 可关闭）。
+抓取过程中进度通知上有 **取消按钮**，可随时中断（已生成的文件保留）；抓取完成后可点「选择题目打开」→ 打开 cpp 并分屏题面 md；打开任何有同名 .md 的 .cpp 也会自动分屏题面预览。打开题目时会强制两栏布局：左侧 cpp、右侧题面 md（设置 `algorithm-training-tool.forceTwoColumnSplit=false` 可关闭）。
 
 每道题产物：
 - `<题号>.md`：中英对照题面（英文自动翻译）
@@ -39,7 +39,7 @@ CPH（Competitive Companion）仍然可用，只是不再是主流程：需要"�
 默认使用仓库根目录的 `new.cpp`。设置优先级从高到低：
 
 1. 命令行：`node tools\pull-contest.js <链接> --template=templates\new.cpp`
-2. 插件设置：`Ctrl+,` 搜 `CF 训练` → `cf-training-tools.pull.template`；或面板「🧩 设置拉题初始模板」选文件
+2. 插件设置：`Ctrl+,` 搜 `算法训练` → `algorithm-training-tool.pull.template`；或面板「🧩 设置拉题初始模板」选文件
 3. `training/pull-config.json`（复制 `training/pull-config.example.json`）：`{ "template": "new.cpp" }`
 4. 默认 `new.cpp`
 
@@ -48,7 +48,7 @@ CPH（Competitive Companion）仍然可用，只是不再是主流程：需要"�
 Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器登录态（Cookie），不用把账号密码交给脚本。
 
 1. 浏览器登录 `codeforces.com`，并**报名**要做的 Gym/私有比赛
-2. 面板「设置 / 维护」→ **🍪 设置 CF 登录 Cookie**（或命令面板搜 `CF 训练: 设置 CF 登录 Cookie`）
+2. 面板「设置 / 维护」→ **🍪 设置 CF 登录 Cookie**（或命令面板搜 `算法训练: 设置 CF 登录 Cookie`）
 3. F12 → Network → 随便点一个 `codeforces.com` 请求 → Request Headers → 复制 **Cookie** 整行（要包含 `JSESSIONID`、`cf_clearance` 等全部字段）
 4. 粘贴后会自动验证，成功后显示你的 handle；之后抓取整场/单题 Gym 会自动带上登录态
 5. Cookie 过期后重新设置；面板「🚪 清除 CF 登录 Cookie」可退出
@@ -73,7 +73,7 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 - **本地做题工具**
   - `tools\cp.ps1`：编译（gnu++23 + O2 + 大栈）、跑样例、手写输入、对拍
   - `tools\mkdata.ps1`：造题数据生成与校验
-- **VS Code 面板**：活动栏「CF 训练」+ 状态栏菜单，所有操作一键触发；支持 AI 配置、样例自测、提交到 OJ、题单展示、**Codeforces / 洛谷 / 牛客 / AtCoder 账号登录**（登录后显示昵称；Gym/私有比赛需要 CF Cookie，公开比赛不需要）
+- **VS Code 面板**：活动栏「算法训练」+ 状态栏菜单，所有操作一键触发；支持 AI 配置、样例自测、提交到 OJ、题单展示、**Codeforces / 洛谷 / 牛客 / AtCoder 账号登录**（登录后显示昵称；Gym/私有比赛需要 CF Cookie，公开比赛不需要）
 
 ## 环境要求
 
@@ -93,7 +93,7 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
    code 算竞
    ```
 
-2. **安装本地 VS Code 插件**（活动栏会出现「CF 训练」）：
+2. **安装本地 VS Code 插件**（活动栏会出现「算法训练」）：
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File tools\install-vscode-extension.ps1
@@ -101,7 +101,7 @@ Gym 和私有比赛需要登录才能看题面/API。工具支持保存浏览器
 
    然后在 VS Code 里 `Ctrl+Shift+P` → `Developer: Reload Window`。
 
-3. **样例自测**：打开题目 `.cpp` 后，活动栏「CF 训练」→「样例自测」块会读取样例；点「▶ 运行全部样例」显示通过数、得分和逐题 PASS/FAIL（Gym 需先设置 Cookie）。4. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `CF 训练`，或编辑 `training/ai-config.json`：
+3. **样例自测**：打开题目 `.cpp` 后，活动栏「算法训练」→「样例自测」块会读取样例；点「▶ 运行全部样例」显示通过数、得分和逐题 PASS/FAIL（Gym 需先设置 Cookie）。4. **配置 AI（可选但推荐）**：面板「AI 助手」→ ⚙️ 设置 AI API，或 `Ctrl+,` 搜 `算法训练`，或编辑 `training/ai-config.json`：
 
    ```json
    { "baseUrl": "https://api.deepseek.com", "apiKey": "sk-...", "model": "deepseek-flash" }
@@ -145,7 +145,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\ship.ps1 -Message "说
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\package-extension.ps1
-# -> dist\cf-training-tools-<version>.vsix
+# -> dist\algorithm-training-tool-<version>.vsix
 ```
 
 上架 VS Code Marketplace 的前置条件（一次性）：
@@ -193,7 +193,7 @@ node tools\ai-client.js hint --md "codeforces\1131 div3\2278A.md" --cpp "codefor
 node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforces\1131 div3\2278A.cpp" --question "我的做法为什么 WA？"
 ```
 
-## 插件面板（活动栏「CF 训练」）
+## 插件面板（活动栏「算法训练」）
 
 - **AI 助手**：AI 提示（当前题）、问 AI、AI 复盘、AI 翻译题面、设置 AI API、测试连接、在 VS Code 设置中编辑
 - **训练**：抓取整场比赛（洛谷/牛客/AtCoder）、生成/刷新周题单、复盘最近一场、复盘指定比赛
@@ -201,7 +201,7 @@ node tools\ai-client.js ask --md "codeforces\1131 div3\2278A.md" --cpp "codeforc
 - **代码**：编译并跑样例、只编译
 - **设置/维护**：设置 CF handle、CF 登录 Cookie、打开训练手册
 
-状态栏也有「CF 训练」和 AI 配置状态入口。
+状态栏也有「算法训练」和 AI 配置状态入口。
 
 ## 平台支持
 

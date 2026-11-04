@@ -1,0 +1,310 @@
+{
+    "name":  "algorithm-training-tool",
+    "displayName":  "Algorithm Training Tool",
+    "description":  "Codeforces 训练辅助：活动栏面板（当前题单/按钮）、周题单（CF+AtCoder+洛谷）、赛后复盘、题面 Markdown",
+    "version":  "0.12.0",
+    "publisher":  "waityyy",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://gitcode.com/2403_86825600/cph-add-tool.git"
+                   },
+    "homepage":  "https://gitcode.com/2403_86825600/cph-add-tool#readme",
+    "engines":  {
+                    "vscode":  "^1.80.0"
+                },
+    "categories":  [
+                       "Other"
+                   ],
+    "activationEvents":  [
+                             "onStartupFinished"
+                         ],
+    "main":  "./extension.js",
+    "contributes":  {
+                        "viewsContainers":  {
+                                                "activitybar":  [
+                                                                    {
+                                                                        "id":  "algorithmTrainingSidebar",
+                                                                        "title":  "算法训练",
+                                                                        "icon":  "media/icon.svg"
+                                                                    }
+                                                                ]
+                                            },
+                        "views":  {
+                                      "algorithmTrainingSidebar":  [
+                                                                       {
+                                                                           "type":  "webview",
+                                                                           "id":  "algorithmTraining.main",
+                                                                           "name":  "训练面板"
+                                                                       },
+                                                                       {
+                                                                           "type":  "webview",
+                                                                           "id":  "algorithmTraining.samples",
+                                                                           "name":  "样例自测"
+                                                                       }
+                                                                   ]
+                                  },
+                        "commands":  [
+                                         {
+                                             "command":  "algorithmTraining.menu",
+                                             "title":  "训练菜单",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.plan",
+                                             "title":  "生成/刷新周题单（CF+AtCoder+洛谷）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.pullContest",
+                                             "title":  "抓取整场比赛（Codeforces/AtCoder/洛谷/牛客）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.pullProblem",
+                                             "title":  "抓取单个题目",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.cfLogin",
+                                             "title":  "设置 CF 登录 Cookie（Gym/私有比赛）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.cfLoginCheck",
+                                             "title":  "检查 CF 登录状态",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.cfLogout",
+                                             "title":  "清除 CF 登录 Cookie",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.pullTemplate",
+                                             "title":  "设置拉题初始模板",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.openPlan",
+                                             "title":  "打开完整周题单",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.openRedo",
+                                             "title":  "打开重做队列",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiHint",
+                                             "title":  "AI 提示（当前题）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiAsk",
+                                             "title":  "问 AI（当前题）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiReview",
+                                             "title":  "AI 复盘（选比赛）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiTranslate",
+                                             "title":  "AI 翻译当前题面",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiConfig",
+                                             "title":  "设置 AI API",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiTest",
+                                             "title":  "测试 AI 连接",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.aiSettings",
+                                             "title":  "在 VS Code 设置中编辑 AI 配置",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.reviewLatest",
+                                             "title":  "复盘最近一场",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.reviewInput",
+                                             "title":  "复盘指定比赛（输入 contestId）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.statementOpen",
+                                             "title":  "打开当前题目题面预览",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.statementNow",
+                                             "title":  "重新抓取当前题目题面",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.samples",
+                                             "title":  "编译并跑样例（cp.ps1）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.build",
+                                             "title":  "只编译（cp.ps1）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.setHandle",
+                                             "title":  "设置 Codeforces handle",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.openDoc",
+                                             "title":  "打开训练手册",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.sampleTests",
+                                             "title":  "样例自测（计分）",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "登录 Codeforces（Cookie）",
+                                             "command":  "algorithmTraining.loginCodeforces",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "登录 洛谷（Cookie）",
+                                             "command":  "algorithmTraining.loginLuogu",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "登录 牛客（Cookie）",
+                                             "command":  "algorithmTraining.loginNowcoder",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "登录 AtCoder（Cookie）",
+                                             "command":  "algorithmTraining.loginAtcoder",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "检查各平台账号状态",
+                                             "command":  "algorithmTraining.accountStatus",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.submit",
+                                             "title":  "提交当前题到对应 OJ",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "清除 OJ Cookie（选择平台）",
+                                             "command":  "algorithmTraining.clearCookie",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "打开 Cookie 保存目录",
+                                             "command":  "algorithmTraining.openCookieFolder",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.companion",
+                                             "title":  "Competitive Companion 接收器",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "AI 找错（当前题）",
+                                             "command":  "algorithmTraining.aiDebug",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "AI 审思路/伪代码",
+                                             "command":  "algorithmTraining.aiPseudo",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "AI 生成题解",
+                                             "command":  "algorithmTraining.aiEditorial",
+                                             "category":  "算法训练"
+                                         },
+                                         {
+                                             "title":  "设置各平台 handle",
+                                             "command":  "algorithmTraining.setJudgeHandle",
+                                             "category":  "算法训练"
+                                         }
+                                     ],
+                        "menus":  {
+                                      "explorer/context":  [
+                                                               {
+                                                                   "command":  "algorithmTraining.statementOpen",
+                                                                   "when":  "resourceExtname == .cpp",
+                                                                   "group":  "navigation@9"
+                                                               }
+                                                           ]
+                                  },
+                        "configuration":  {
+                                              "title":  "算法训练 / AI",
+                                              "properties":  {
+                                                                 "algorithm-training-tool.ai.baseUrl":  {
+                                                                                                            "type":  "string",
+                                                                                                            "default":  "https://api.deepseek.com",
+                                                                                                            "description":  "OpenAI 兼容 API 的 baseUrl（脚本调用时同步写入 training/ai-config.json）"
+                                                                                                        },
+                                                                 "algorithm-training-tool.ai.model":  {
+                                                                                                          "type":  "string",
+                                                                                                          "default":  "deepseek-flash",
+                                                                                                          "description":  "模型名（DeepSeek 当前可选 deepseek-flash / deepseek-v4-pro）"
+                                                                                                      },
+                                                                 "algorithm-training-tool.ai.apiKey":  {
+                                                                                                           "type":  "string",
+                                                                                                           "default":  "",
+                                                                                                           "description":  "API Key（只保存在本机；不要提交/分享）"
+                                                                                                       },
+                                                                 "algorithm-training-tool.ai.temperature":  {
+                                                                                                                "type":  "number",
+                                                                                                                "default":  0.3,
+                                                                                                                "description":  "采样温度（越低越稳定）"
+                                                                                                            },
+                                                                 "algorithm-training-tool.autoPreview":  {
+                                                                                                             "type":  "boolean",
+                                                                                                             "default":  true,
+                                                                                                             "description":  "拉题时自动打开题面预览（只对当前正在编辑的那道题生效；整场拉题不会弹一堆。设为 false 可彻底关闭）"
+                                                                                                         },
+                                                                 "algorithm-training-tool.forceTwoColumnSplit":  {
+                                                                                                                     "type":  "boolean",
+                                                                                                                     "default":  true,
+                                                                                                                     "description":  "打开题目时强制两栏布局：左侧 .cpp、右侧题面 .md 预览（设为 false 则不调整布局）"
+                                                                                                                 },
+                                                                 "algorithm-training-tool.autoStatementPreview":  {
+                                                                                                                      "type":  "boolean",
+                                                                                                                      "default":  true,
+                                                                                                                      "description":  "打开有同名 .md 的 .cpp 时，自动在侧边分屏打开题面预览"
+                                                                                                                  },
+                                                                 "algorithm-training-tool.pull.template":  {
+                                                                                                               "type":  "string",
+                                                                                                               "default":  "new.cpp",
+                                                                                                               "description":  "拉题时用于生成新 .cpp 的初始模板（绝对路径，或相对仓库根的路径，例如 new.cpp / templates/new.cpp）"
+                                                                                                           },
+                                                                 "algorithm-training-tool.companion.port":  {
+                                                                                                                "type":  "number",
+                                                                                                                "default":  27121,
+                                                                                                                "description":  "Competitive Companion 接收端口（默认 27121；如果端口被占用可在 Companion 扩展里改 custom port）"
+                                                                                                            }
+                                                             }
+                                          }
+                    },
+    "keywords":  [
+                     "codeforces",
+                     "atcoder",
+                     "luogu",
+                     "training",
+                     "competitive programming"
+                 ]
+}

@@ -1,6 +1,6 @@
 'use strict';
 
-// CF Training Tools -- thin VS Code wrapper around the PowerShell tools in <workspace>/tools.
+// Algorithm Training Tool -- thin VS Code wrapper around the PowerShell tools in <workspace>/tools.
 // Adds: activity bar panel (current training plan + clickable buttons), status bar menu,
 // command palette commands. All heavy lifting stays in the scripts.
 
@@ -8,6 +8,7 @@ const vscode = require('vscode');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 let output = null;
 let statusBar = null;
@@ -17,6 +18,8 @@ let samplesProvider = null;
 let lastPreviewed = null;
 let lastActiveCpp = null;
 let layoutingCpp = null;
+let companionServer = null;
+let companionPort = 0;
 
 function workspaceRoot() {
     const folders = vscode.workspace.workspaceFolders;
@@ -90,23 +93,67 @@ function accountLineHtml() {
     ];
     return defs.map(function (d) {
         let nickname = accounts[d[0]] && accounts[d[0]].nickname ? String(accounts[d[0]].nickname) : '';
-        if (!nickname && d[0] === 'codeforces') nickname = handle;
+        if (!nickname) nickname = d[3] || '';
         return escapeHtml(d[1]) + '：' + (nickname ? '<code>' + escapeHtml(nickname) + '</code>' : '<span class="muted">未登录</span>');
     }).join('　') + '　' + gymStatusHtml();
 }
 
+const JUDGE_HANDLES = {
+    codeforces: 'Codeforces',
+    luogu: '洛谷',
+    nowcoder: '牛客',
+    leetcode: 'LeetCode',
+    atcoder: 'AtCoder'
+};
+
+function handlesFilePath() {
+    const root = workspaceRoot();
+    return root ? path.join(root, 'training', 'handles.json') : '';
+}
+
+function readJudgeHandles() {
+    const file = handlesFilePath();
+    const data = {};
+    if (!file) return data;
+    try {
+        if (fs.existsSync(file)) {
+            const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+            Object.keys(parsed || {}).forEach(function (k) { if (parsed[k]) data[k] = String(parsed[k]); });
+        }
+    } catch (e) { /* ignore */ }
+    if (!data.codeforces) data.codeforces = readHandle();
+    return data;
+}
+
+function writeJudgeHandle(platform, handle) {
+    const file = handlesFilePath();
+    if (!file) return;
+    const data = readJudgeHandles();
+    data[platform] = String(handle || '').trim();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    if (platform === 'codeforces') {
+        try {
+            const cfFile = path.join(workspaceRoot(), 'training', 'cf-handle.txt');
+            fs.writeFileSync(cfFile, String(handle || '').trim() + '\n', 'utf8');
+        } catch (e) { /* ignore */ }
+    }
+}
+
 function accountChipsHtml() {
     const accounts = readAccounts();
-    const handle = readHandle();
+    const handles = readJudgeHandles();
+    const handle = handles.codeforces || readHandle();
     const defs = [
         ['codeforces', 'CF', '🟥', handle],
-        ['luogu', '洛谷', '🟦', ''],
-        ['nowcoder', '牛客', '🟨', ''],
-        ['atcoder', 'AtCoder', '🟪', '']
+        ['luogu', '洛谷', '🟦', handles.luogu || ''],
+        ['nowcoder', '牛客', '🟨', handles.nowcoder || ''],
+        ['leetcode', 'LeetCode', '🟩', handles.leetcode || ''],
+        ['atcoder', 'AtCoder', '🟪', handles.atcoder || '']
     ];
     return defs.map(function (d) {
         let nickname = accounts[d[0]] && accounts[d[0]].nickname ? String(accounts[d[0]].nickname) : '';
-        if (!nickname && d[0] === 'codeforces') nickname = handle;
+        if (!nickname) nickname = d[3] || '';
         return '<span class="acc ' + (nickname ? 'on' : 'off') + '" title="' + escapeHtml(d[1] + (nickname ? '：' + nickname : '：未登录')) + '">' +
             '<span class="acc-ico">' + d[2] + '</span><span class="acc-name">' + escapeHtml(d[1]) + '</span>' +
             (nickname ? '<span class="acc-nick">' + escapeHtml(nickname) + '</span>' : '') + '</span>';
@@ -161,7 +208,7 @@ function aiConfigured() {
 
 function getAiSettings() {
     try {
-        const conf = vscode.workspace.getConfiguration('cf-training-tools');
+        const conf = vscode.workspace.getConfiguration('algorithm-training-tool');
         const read = function (key) {
             try {
                 if (conf.inspect) {
@@ -225,7 +272,7 @@ function updateAiStatusBar() {
     const model = String(s.model || cfg.model || 'AI');
     aiStatusBar.text = on ? ('$(sparkle) AI ' + model) : '$(sparkle) AI 未配置';
     aiStatusBar.tooltip = on ? 'AI 已配置（点击修改 API 设置）' : '点击设置 AI API（用于翻译 / 复盘 / 提示）';
-    aiStatusBar.command = 'cfTraining.aiConfig';
+    aiStatusBar.command = 'algorithmTraining.aiConfig';
     aiStatusBar.show();
 }
 
@@ -254,7 +301,7 @@ function runNode(scriptName, args, title, options) {
     }
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: title || 'CF 训练工具',
+        title: title || '算法训练工具',
         cancellable: options.cancellable !== false
     }, function (progress, token) {
         return new Promise(function (resolve) {
@@ -329,7 +376,7 @@ function runPowerShell(scriptName, args, title, options) {
     }
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: title || 'CF 训练工具',
+        title: title || '算法训练工具',
         cancellable: options.cancellable !== false
     }, function (progress, token) {
         return new Promise(function (resolve) {
@@ -551,7 +598,7 @@ async function layoutCppAndMd(cppPath) {
     if (layoutingCpp) return;
     layoutingCpp = cppPath;
     try {
-        const conf = vscode.workspace.getConfiguration('cf-training-tools');
+        const conf = vscode.workspace.getConfiguration('algorithm-training-tool');
         if (conf.get('forceTwoColumnSplit') !== false) {
             try { await vscode.commands.executeCommand('workbench.action.editorLayoutTwoColumns'); } catch (e) { /* ignore */ }
         }
@@ -616,7 +663,7 @@ async function cmdPullContest() {
             return;
         }
     }
-    const template = String(vscode.workspace.getConfiguration('cf-training-tools').get('pull.template') || 'new.cpp').trim();
+    const template = String(vscode.workspace.getConfiguration('algorithm-training-tool').get('pull.template') || 'new.cpp').trim();
     const pullArgs = [url.trim()];
     if (template) pullArgs.push('--template=' + template);
     const result = await runNode('pull-contest.js', pullArgs, '抓取整场比赛中…', { cancellable: true });
@@ -655,7 +702,7 @@ async function cmdPullProblem() {
         validateInput: function (s) { return /^https?:\/\//i.test(String(s || '').trim()) ? null : '请输入 http(s) 链接'; }
     });
     if (!url) return;
-    const template = String(vscode.workspace.getConfiguration('cf-training-tools').get('pull.template') || 'new.cpp').trim();
+    const template = String(vscode.workspace.getConfiguration('algorithm-training-tool').get('pull.template') || 'new.cpp').trim();
     const args = [url.trim(), '--single'];
     if (template) args.push('--template=' + template);
     const result = await runNode('pull-contest.js', args, '抓取题目中…', { cancellable: true });
@@ -850,10 +897,10 @@ async function cmdSubmit(cppArg) {
     if (!data.ok) {
         if (data.needLogin) {
             const loginCmd = {
-                codeforces: 'cfTraining.loginCodeforces',
-                luogu: 'cfTraining.loginLuogu',
-                atcoder: 'cfTraining.loginAtcoder',
-                nowcoder: 'cfTraining.loginNowcoder'
+                codeforces: 'algorithmTraining.loginCodeforces',
+                luogu: 'algorithmTraining.loginLuogu',
+                atcoder: 'algorithmTraining.loginAtcoder',
+                nowcoder: 'algorithmTraining.loginNowcoder'
             }[data.platform];
             const pick = await vscode.window.showWarningMessage(data.message || '需要先登录对应平台', '去登录');
             if (pick === '去登录' && loginCmd) await vscode.commands.executeCommand(loginCmd);
@@ -908,6 +955,181 @@ async function cmdOpenCookieFolder() {
     }
 }
 
+function companionPortSetting() {
+    try {
+        const value = vscode.workspace.getConfiguration('algorithm-training-tool').get('companion.port');
+        return Number(value) || 27121;
+    } catch (e) {
+        return 27121;
+    }
+}
+
+function startCompanionServer() {
+    if (companionServer) return;
+    const root = workspaceRoot();
+    if (!root) return;
+    const port = companionPortSetting();
+    const server = http.createServer(function (req, res) {
+        const cors = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        };
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, cors);
+            res.end();
+            return;
+        }
+        if (req.method !== 'POST') {
+            res.writeHead(404, cors);
+            res.end('not found');
+            return;
+        }
+        let body = '';
+        req.on('data', function (chunk) {
+            body += chunk;
+            if (body.length > 12 * 1024 * 1024) req.destroy();
+        });
+        req.on('end', function () {
+            try {
+                const data = JSON.parse(body);
+                const writerPath = path.join(root, 'tools', 'companion-data.js');
+                const writer = require(writerPath);
+                const result = writer.writeCompanionProblem(data, root);
+                if (output) output.appendLine('[companion] received: ' + result.title + ' -> ' + result.cppPath + ' tests=' + result.tests);
+                res.writeHead(200, Object.assign({ 'Content-Type': 'application/json' }, cors));
+                res.end(JSON.stringify({ status: 'OK', platform: result.platform, cpp: result.cppPath, tests: result.tests }));
+                setTimeout(function () {
+                    try {
+                        vscode.window.showTextDocument(vscode.Uri.file(result.cppPath), { preview: false });
+                    } catch (e) { /* ignore */ }
+                    try { layoutCppAndMd(result.cppPath); } catch (e) { /* ignore */ }
+                    vscode.window.showInformationMessage('已接收题目：' + result.title + '（' + result.tests + ' 个样例）');
+                    if (sidebarProvider) sidebarProvider.refresh();
+                }, 150);
+            } catch (e) {
+                if (output) output.appendLine('[companion] ERROR: ' + (e && e.stack ? e.stack : String(e)));
+                res.writeHead(500, Object.assign({ 'Content-Type': 'text/plain' }, cors));
+                res.end('ERROR: ' + String(e && e.message ? e.message : e));
+            }
+        });
+    });
+    server.on('error', function (e) {
+        companionServer = null;
+        if (output) output.appendLine('[companion] 启动失败（端口 ' + port + '）：' + String(e && e.message ? e.message : e));
+        vscode.window.showWarningMessage('Companion 接收器启动失败（端口 ' + port + '）：' + String(e && e.message ? e.message : e));
+    });
+    server.listen(port, function () {
+        companionServer = server;
+        companionPort = port;
+        if (output) output.appendLine('[companion] listening on 127.0.0.1:' + port);
+    });
+}
+
+async function cmdCompanion() {
+    const port = companionServer ? companionPort : companionPortSetting();
+    if (!companionServer) {
+        const pick = await vscode.window.showWarningMessage('Companion 接收器没有在运行（端口 ' + port + '）。', '重试启动');
+        if (pick === '重试启动') {
+            startCompanionServer();
+            vscode.window.showInformationMessage('已尝试启动 Companion 接收器；端口 ' + port);
+        }
+        return;
+    }
+    const pick = await vscode.window.showInformationMessage(
+        'Competitive Companion 接收器运行中：http://127.0.0.1:' + port + '/\n在浏览器打开题目页，点 Companion 的「+」即可把题面和样例发过来（不需要 Cookie）。',
+        '复制地址'
+    );
+    if (pick === '复制地址' && vscode.env.clipboard) {
+        await vscode.env.clipboard.writeText('http://127.0.0.1:' + port + '/');
+    }
+}
+
+async function runAiMarkdown(mode, extraArgs, title, outName) {
+    const root = workspaceRoot();
+    if (!root) return null;
+    const args = [mode].concat(extraArgs || []);
+    const res = await runNode('ai-client.js', args, title, { cancellable: true });
+    if (res.code !== 0) {
+        const first = (String(res.stderr || '').trim().split(/\r?\n/)[0]) || 'AI 调用失败';
+        vscode.window.showErrorMessage(title + '：' + first);
+        return null;
+    }
+    const text = String(res.stdout || '').trim();
+    if (!text) {
+        vscode.window.showWarningMessage(title + '：AI 没有返回内容');
+        return null;
+    }
+    const outFile = path.join(root, '.build', outName);
+    try { fs.mkdirSync(path.dirname(outFile), { recursive: true }); fs.writeFileSync(outFile, text + '\n', 'utf8'); } catch (e) { /* ignore */ }
+    if (!(await openPreview(outFile))) {
+        vscode.window.showInformationMessage(title + ' 结果已写入 ' + outFile);
+    }
+    return text;
+}
+
+async function cmdSetJudgeHandle() {
+    const handles = readJudgeHandles();
+    const items = Object.keys(JUDGE_HANDLES).map(function (p) {
+        return { label: JUDGE_HANDLES[p], description: handles[p] || '未设置', platform: p };
+    });
+    const picked = await vscode.window.showQuickPick(items, { placeHolder: '选择要设置 handle 的平台' });
+    if (!picked) return;
+    const value = await vscode.window.showInputBox({
+        prompt: '输入 ' + JUDGE_HANDLES[picked.platform] + ' 用户名（公开信息，用于公开主页/提交记录）',
+        value: handles[picked.platform] || '',
+        ignoreFocusOut: true,
+        validateInput: function (s) { return String(s || '').trim() ? null : '不能为空'; }
+    });
+    if (!value) return;
+    writeJudgeHandle(picked.platform, value);
+    if (sidebarProvider) sidebarProvider.refresh();
+    vscode.window.showInformationMessage('已保存 ' + JUDGE_HANDLES[picked.platform] + ' handle：' + value.trim());
+}
+
+async function cmdAiDebug() {
+    const cpp = activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
+    await saveDocumentForPath(cpp);
+    const md = siblingMarkdown(cpp);
+    const symptom = await vscode.window.showInputBox({
+        prompt: '可选：描述错误（如 WA 样例 3 / RE / TLE / 编译错误），留空让 AI 根据代码推断',
+        ignoreFocusOut: true
+    });
+    const args = ['--cpp', cpp];
+    if (fs.existsSync(md)) args.push('--md', md);
+    if (symptom) args.push('--error', symptom);
+    await runAiMarkdown('debug', args, 'AI 找错中…', 'ai-debug.md');
+}
+
+async function cmdAiPseudocode() {
+    const cpp = activeCppPath();
+    const md = cpp ? siblingMarkdown(cpp) : '';
+    let clip = '';
+    try { clip = await vscode.env.clipboard.readText(); } catch (e) { /* ignore */ }
+    const pseudo = await vscode.window.showInputBox({
+        prompt: '粘贴简要伪代码/口胡思路（可从剪贴板带入；较长的建议先复制到剪贴板再打开本命令）',
+        value: String(clip || '').slice(0, 800),
+        ignoreFocusOut: true,
+        validateInput: function (s) { return String(s || '').trim() ? null : '不能为空'; }
+    });
+    if (!pseudo) return;
+    const pseudoFile = path.join(workspaceRoot(), '.build', 'ai-pseudo.txt');
+    try { fs.mkdirSync(path.dirname(pseudoFile), { recursive: true }); fs.writeFileSync(pseudoFile, pseudo, 'utf8'); } catch (e) { /* ignore */ }
+    const args = ['--pseudo', pseudoFile];
+    if (cpp) args.push('--cpp', cpp);
+    if (md && fs.existsSync(md)) args.push('--md', md);
+    await runAiMarkdown('pseudocode', args, 'AI 审思路中…', 'ai-pseudocode.md');
+}
+
+async function cmdAiEditorial() {
+    const cpp = activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
+    const md = siblingMarkdown(cpp);
+    if (!fs.existsSync(md)) return vscode.window.showWarningMessage('没有找到同目录题面 .md，先拉题或打开已有题面');
+    await runAiMarkdown('editorial', ['--md', md], 'AI 生成题解中…', 'ai-editorial.md');
+}
+
 async function cmdPullTemplate() {
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -917,7 +1139,7 @@ async function cmdPullTemplate() {
     if (!picked || !picked.length) return;
     const file = picked[0].fsPath;
     try {
-        const conf = vscode.workspace.getConfiguration('cf-training-tools');
+        const conf = vscode.workspace.getConfiguration('algorithm-training-tool');
         await conf.update('pull.template', file, vscode.ConfigurationTarget.Global);
         vscode.window.showInformationMessage('拉题初始模板已设置：' + file + '（之后「抓取整场比赛」会用它生成 .cpp）');
     } catch (e) {
@@ -997,7 +1219,7 @@ async function cmdStatementNow() {
 
 
 async function cmdSampleTests() {
-    try { await vscode.commands.executeCommand('workbench.view.extension.cfTrainingSidebar'); } catch (e) { /* ignore */ }
+    try { await vscode.commands.executeCommand('workbench.view.extension.algorithmTrainingSidebar'); } catch (e) { /* ignore */ }
     if (samplesProvider) await samplesProvider.refresh();
 }
 
@@ -1084,7 +1306,7 @@ async function cmdAiConfig() {
     if (apiKey && apiKey.trim()) next.apiKey = apiKey.trim();
     writeAiConfigFile(next);
     try {
-        const conf = vscode.workspace.getConfiguration('cf-training-tools');
+        const conf = vscode.workspace.getConfiguration('algorithm-training-tool');
         await conf.update('ai.baseUrl', next.baseUrl, vscode.ConfigurationTarget.Global);
         await conf.update('ai.model', next.model, vscode.ConfigurationTarget.Global);
         if (next.apiKey) await conf.update('ai.apiKey', next.apiKey, vscode.ConfigurationTarget.Global);
@@ -1097,7 +1319,7 @@ async function cmdAiConfig() {
 
 async function cmdAiOpenSettings() {
     try {
-        await vscode.commands.executeCommand('workbench.action.openSettings', 'cf-training-tools.ai');
+        await vscode.commands.executeCommand('workbench.action.openSettings', 'algorithm-training-tool.ai');
     } catch (e) {
         return cmdAiConfig();
     }
@@ -1219,31 +1441,31 @@ async function cmdAiTranslate() {
 
 async function cmdMenu() {
     const items = [
-        { label: '$(lightbulb) AI 提示（当前题）', description: '教练模式，分级提示', command: 'cfTraining.aiHint' },
-        { label: '$(comment-discussion) 问 AI（当前题）', command: 'cfTraining.aiAsk' },
-        { label: '$(brain) AI 复盘（选比赛）', command: 'cfTraining.aiReview' },
-        { label: '$(globe) AI 翻译当前题面', command: 'cfTraining.aiTranslate' },
-        { label: '$(settings-gear) 设置 AI API', command: 'cfTraining.aiConfig' },
-        { label: '$(tools) 在 VS Code 设置中编辑 AI', command: 'cfTraining.aiSettings' },
-        { label: '$(plug) 测试 AI 连接', command: 'cfTraining.aiTest' },
-        { label: '$(calendar) 生成/刷新周题单（CF+AtCoder+洛谷）', description: 'training/plan.md', command: 'cfTraining.plan' },
-        { label: '$(cloud-download) 抓取整场比赛（Codeforces/洛谷/牛客/AtCoder）', description: '题面 + cpp + 样例缓存', command: 'cfTraining.pullContest' },
-        { label: '$(cloud-download) 抓取单个题目', description: '粘贴题目链接，自动建 md/cpp/缓存', command: 'cfTraining.pullProblem' },
-        { label: '$(file) 设置拉题初始模板', description: '生成新 .cpp 用的模板文件', command: 'cfTraining.pullTemplate' },
-        { label: '$(book) 打开完整周题单', command: 'cfTraining.openPlan' },
-        { label: '$(checklist) 打开重做队列', command: 'cfTraining.openRedo' },
-        { label: '$(history) 复盘最近一场', description: '生成 review.md 并打开', command: 'cfTraining.reviewLatest' },
-        { label: '$(search) 复盘指定比赛', description: '输入 contestId', command: 'cfTraining.reviewInput' },
-        { label: '$(book) 打开当前题面预览', command: 'cfTraining.statementOpen' },
-        { label: '$(refresh) 重新抓取当前题面', command: 'cfTraining.statementNow' },
-        { label: '$(beaker) 样例自测（计分面板）', command: 'cfTraining.sampleTests' },
-        { label: '$(run-all) 编译并跑样例', command: 'cfTraining.samples' },
-        { label: '$(tools) 只编译', command: 'cfTraining.build' },
-        { label: '$(account) 设置 CF 登录 Cookie（Gym/私有比赛）', command: 'cfTraining.cfLogin' },
-        { label: '$(search) 检查 CF 登录状态', command: 'cfTraining.cfLoginCheck' },
-        { label: '$(trash) 清除 CF 登录 Cookie', command: 'cfTraining.cfLogout' },
-        { label: '$(person) 设置 CF handle', command: 'cfTraining.setHandle' },
-        { label: '$(question) 打开训练手册', command: 'cfTraining.openDoc' }
+        { label: '$(lightbulb) AI 提示（当前题）', description: '教练模式，分级提示', command: 'algorithmTraining.aiHint' },
+        { label: '$(comment-discussion) 问 AI（当前题）', command: 'algorithmTraining.aiAsk' },
+        { label: '$(brain) AI 复盘（选比赛）', command: 'algorithmTraining.aiReview' },
+        { label: '$(globe) AI 翻译当前题面', command: 'algorithmTraining.aiTranslate' },
+        { label: '$(settings-gear) 设置 AI API', command: 'algorithmTraining.aiConfig' },
+        { label: '$(tools) 在 VS Code 设置中编辑 AI', command: 'algorithmTraining.aiSettings' },
+        { label: '$(plug) 测试 AI 连接', command: 'algorithmTraining.aiTest' },
+        { label: '$(calendar) 生成/刷新周题单（CF+AtCoder+洛谷）', description: 'training/plan.md', command: 'algorithmTraining.plan' },
+        { label: '$(cloud-download) 抓取整场比赛（Codeforces/洛谷/牛客/AtCoder）', description: '题面 + cpp + 样例缓存', command: 'algorithmTraining.pullContest' },
+        { label: '$(cloud-download) 抓取单个题目', description: '粘贴题目链接，自动建 md/cpp/缓存', command: 'algorithmTraining.pullProblem' },
+        { label: '$(file) 设置拉题初始模板', description: '生成新 .cpp 用的模板文件', command: 'algorithmTraining.pullTemplate' },
+        { label: '$(book) 打开完整周题单', command: 'algorithmTraining.openPlan' },
+        { label: '$(checklist) 打开重做队列', command: 'algorithmTraining.openRedo' },
+        { label: '$(history) 复盘最近一场', description: '生成 review.md 并打开', command: 'algorithmTraining.reviewLatest' },
+        { label: '$(search) 复盘指定比赛', description: '输入 contestId', command: 'algorithmTraining.reviewInput' },
+        { label: '$(book) 打开当前题面预览', command: 'algorithmTraining.statementOpen' },
+        { label: '$(refresh) 重新抓取当前题面', command: 'algorithmTraining.statementNow' },
+        { label: '$(beaker) 样例自测（计分面板）', command: 'algorithmTraining.sampleTests' },
+        { label: '$(run-all) 编译并跑样例', command: 'algorithmTraining.samples' },
+        { label: '$(tools) 只编译', command: 'algorithmTraining.build' },
+        { label: '$(account) 设置 CF 登录 Cookie（Gym/私有比赛）', command: 'algorithmTraining.cfLogin' },
+        { label: '$(search) 检查 CF 登录状态', command: 'algorithmTraining.cfLoginCheck' },
+        { label: '$(trash) 清除 CF 登录 Cookie', command: 'algorithmTraining.cfLogout' },
+        { label: '$(person) 设置 CF handle', command: 'algorithmTraining.setHandle' },
+        { label: '$(question) 打开训练手册', command: 'algorithmTraining.openDoc' }
     ];
     const pick = await vscode.window.showQuickPick(items, { placeHolder: '选择操作' });
     if (pick && pick.command) {
@@ -1265,7 +1487,7 @@ function planSectionHtml() {
         return '<div class="card">\n' +
             '<div class="card-head"><span class="card-icon">📅</span><div><div class="card-title">当前题单</div><div class="card-sub">按弱项 tag + 难度从 CF / AtCoder / 洛谷选题</div></div></div>\n' +
             '<div class="empty">还没有生成周题单。</div>\n' +
-            '<div class="grid"><button class="btn primary wide" data-cmd="cfTraining.plan"><span class="ico">✨</span><span class="lbl">生成 / 刷新周题单</span></button></div>\n' +
+            '<div class="grid"><button class="btn primary wide" data-cmd="algorithmTraining.plan"><span class="ico">✨</span><span class="lbl">生成 / 刷新周题单</span></button></div>\n' +
             '</div>\n';
     }
     const problems = plan.problems || [];
@@ -1286,13 +1508,13 @@ function planSectionHtml() {
     });
     html += '</div>\n';
     html += '<div class="grid">' +
-        '<button class="btn small" data-cmd="cfTraining.plan"><span class="ico">🔄</span><span class="lbl">刷新题单</span></button>' +
-        '<button class="btn small" data-cmd="cfTraining.openPlan"><span class="ico">📄</span><span class="lbl">完整题单</span></button>' +
+        '<button class="btn small" data-cmd="algorithmTraining.plan"><span class="ico">🔄</span><span class="lbl">刷新题单</span></button>' +
+        '<button class="btn small" data-cmd="algorithmTraining.openPlan"><span class="ico">📄</span><span class="lbl">完整题单</span></button>' +
         '</div>\n';
     const redoCount = plan.redoCount || 0;
     html += '<div class="divider"></div>\n';
     html += '<div class="mini-head"><span class="card-icon">🔁</span><span class="card-title">重做队列</span><span class="count">' + escapeHtml(redoCount) + ' 题</span></div>\n';
-    html += '<button class="btn" data-cmd="cfTraining.openRedo"><span class="ico">📋</span><span class="lbl">打开重做队列</span></button>\n';
+    html += '<button class="btn" data-cmd="algorithmTraining.openRedo"><span class="ico">📋</span><span class="lbl">打开重做队列</span></button>\n';
     html += '</div>\n';
     return html;
 }
@@ -1311,50 +1533,55 @@ function sidebarHtml() {
         {
             title: '快速开始', icon: '⚡', sub: '拉题 · 题面', open: true,
             items: [
-                { cmd: 'cfTraining.pullContest', label: '抓取整场比赛', icon: '📥', primary: true },
-                { cmd: 'cfTraining.pullProblem', label: '抓取单个题目', icon: '📄' },
-                { cmd: 'cfTraining.statementOpen', label: '打开当前题面', icon: '📖' },
-                { cmd: 'cfTraining.statementNow', label: '重新抓取题面', icon: '🔄' }
+                { cmd: 'algorithmTraining.pullContest', label: '抓取整场比赛', icon: '📥', primary: true },
+                { cmd: 'algorithmTraining.pullProblem', label: '抓取单个题目', icon: '📄' },
+                { cmd: 'algorithmTraining.companion', label: 'Companion 接收', icon: '📡' },
+                { cmd: 'algorithmTraining.statementOpen', label: '打开当前题面', icon: '📖' },
+                { cmd: 'algorithmTraining.statementNow', label: '重新抓取题面', icon: '🔄' }
             ]
         },
 
         {
             title: '训练计划', icon: '📅', sub: '赛后复盘', open: true,
             items: [
-                { cmd: 'cfTraining.reviewLatest', label: '复盘最近一场', icon: '🧾', primary: true },
-                { cmd: 'cfTraining.reviewInput', label: '复盘指定比赛', icon: '🔍' }
+                { cmd: 'algorithmTraining.reviewLatest', label: '复盘最近一场', icon: '🧾', primary: true },
+                { cmd: 'algorithmTraining.reviewInput', label: '复盘指定比赛', icon: '🔍' }
             ]
         },
         {
             title: 'AI 助手', icon: '🤖', sub: aiText, open: false,
             items: [
-                { cmd: 'cfTraining.aiHint', label: 'AI 提示', icon: '💡', primary: true },
-                { cmd: 'cfTraining.aiAsk', label: '问 AI', icon: '❓' },
-                { cmd: 'cfTraining.aiReview', label: 'AI 复盘', icon: '🧠' },
-                { cmd: 'cfTraining.aiTranslate', label: '翻译题面', icon: '🌐' },
-                { cmd: 'cfTraining.aiConfig', label: '设置 AI API', icon: '⚙️' },
-                { cmd: 'cfTraining.aiTest', label: '测试 AI 连接', icon: '🔌' }
+                { cmd: 'algorithmTraining.aiDebug', label: 'AI 找错', icon: '🩺', primary: true },
+                { cmd: 'algorithmTraining.aiPseudo', label: 'AI 审思路', icon: '📝', primary: true },
+                { cmd: 'algorithmTraining.aiEditorial', label: 'AI 题解', icon: '📚' },
+                { cmd: 'algorithmTraining.aiHint', label: 'AI 提示', icon: '💡', primary: true },
+                { cmd: 'algorithmTraining.aiAsk', label: '问 AI', icon: '❓' },
+                { cmd: 'algorithmTraining.aiReview', label: 'AI 复盘', icon: '🧠' },
+                { cmd: 'algorithmTraining.aiTranslate', label: '翻译题面', icon: '🌐' },
+                { cmd: 'algorithmTraining.aiConfig', label: '设置 AI API', icon: '⚙️' },
+                { cmd: 'algorithmTraining.aiTest', label: '测试 AI 连接', icon: '🔌' }
             ]
         },
         {
             title: '账号', icon: '👤', sub: '登录 · Cookie · handle', open: false,
             items: [
-                { cmd: 'cfTraining.loginCodeforces', label: '登录 Codeforces', icon: '🟥' },
-                { cmd: 'cfTraining.loginLuogu', label: '登录 洛谷', icon: '🟦' },
-                { cmd: 'cfTraining.loginNowcoder', label: '登录 牛客', icon: '🟨' },
-                { cmd: 'cfTraining.loginAtcoder', label: '登录 AtCoder', icon: '🟪' },
-                { cmd: 'cfTraining.accountStatus', label: '检查账号状态', icon: '🔎' },
-                { cmd: 'cfTraining.clearCookie', label: '清除平台 Cookie', icon: '🚪' },
-                { cmd: 'cfTraining.openCookieFolder', label: '打开 Cookie 目录', icon: '📁' },
-                { cmd: 'cfTraining.setHandle', label: '设置 CF handle', icon: '👤' }
+                { cmd: 'algorithmTraining.loginCodeforces', label: '登录 Codeforces', icon: '🟥' },
+                { cmd: 'algorithmTraining.loginLuogu', label: '登录 洛谷', icon: '🟦' },
+                { cmd: 'algorithmTraining.loginNowcoder', label: '登录 牛客', icon: '🟨' },
+                { cmd: 'algorithmTraining.loginAtcoder', label: '登录 AtCoder', icon: '🟪' },
+                { cmd: 'algorithmTraining.accountStatus', label: '检查账号状态', icon: '🔎' },
+                { cmd: 'algorithmTraining.clearCookie', label: '清除平台 Cookie', icon: '🚪' },
+                { cmd: 'algorithmTraining.openCookieFolder', label: '打开 Cookie 目录', icon: '📁' },
+                { cmd: 'algorithmTraining.setJudgeHandle', label: '设置各平台 handle', icon: '👤' },
+                { cmd: 'algorithmTraining.setHandle', label: '设置 CF handle（旧）', icon: '👤' }
             ]
         },
         {
             title: '设置', icon: '⚙️', sub: '模板 · AI 设置 · 帮助', open: false,
             items: [
-                { cmd: 'cfTraining.pullTemplate', label: '拉题初始模板', icon: '🧩' },
-                { cmd: 'cfTraining.aiSettings', label: 'AI 设置页', icon: '🧰' },
-                { cmd: 'cfTraining.openDoc', label: '训练手册', icon: '❓' }
+                { cmd: 'algorithmTraining.pullTemplate', label: '拉题初始模板', icon: '🧩' },
+                { cmd: 'algorithmTraining.aiSettings', label: 'AI 设置页', icon: '🧰' },
+                { cmd: 'algorithmTraining.openDoc', label: '训练手册', icon: '❓' }
             ]
         }
     ];
@@ -1376,7 +1603,7 @@ function sidebarHtml() {
 
     const hero = '<div class="hero">' +
         '<div class="brand"><div class="logo">🏆</div><div class="brand-text">' +
-        '<div class="app-name">CF 训练工具</div>' +
+        '<div class="app-name">算法训练工具</div>' +
         '<div class="app-sub">Codeforces · 洛谷 · 牛客 · AtCoder</div></div></div>' +
         '<div class="chips">' +
         '<span class="chip"><span class="chip-key">handle</span><span class="chip-val">' + escapeHtml(handle || '未设置') + '</span></span>' +
@@ -1601,7 +1828,7 @@ class SamplesViewProvider {
                 if (msg.command === 'deleteCustom') return await self.deleteCustom(msg);
                 if (msg.command === 'saveTest') return await self.saveTest(msg);
                 if (msg.command === 'runOne') return await self.runOne(msg);
-                if (msg.command === 'submit') return await vscode.commands.executeCommand('cfTraining.submit', self.cpp);
+                if (msg.command === 'submit') return await vscode.commands.executeCommand('algorithmTraining.submit', self.cpp);
             } catch (e) {
                 if (output && output.appendLine) output.appendLine('[samples] ERROR ' + (e && e.stack ? e.stack : String(e)));
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
@@ -1867,11 +2094,11 @@ class SidebarViewProvider {
 /* ---------------- activation ---------------- */
 
 function activate(context) {
-    output = vscode.window.createOutputChannel('CF 训练工具');
+    output = vscode.window.createOutputChannel('算法训练工具');
     statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBar.text = '$(mortar-board) CF 训练';
-    statusBar.tooltip = '打开 CF 训练工具菜单';
-    statusBar.command = 'cfTraining.menu';
+    statusBar.text = '$(mortar-board) 算法训练';
+    statusBar.tooltip = '打开 算法训练工具菜单';
+    statusBar.command = 'algorithmTraining.menu';
     statusBar.show();
     context.subscriptions.push(output, statusBar);
 
@@ -1882,7 +2109,7 @@ function activate(context) {
     try {
         context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(function (e) {
             try {
-                if (e && e.affectsConfiguration && e.affectsConfiguration('cf-training-tools.ai')) {
+                if (e && e.affectsConfiguration && e.affectsConfiguration('algorithm-training-tool.ai')) {
                     syncAiSettingsToFile();
                     updateAiStatusBar();
                     if (sidebarProvider) sidebarProvider.refresh();
@@ -1908,7 +2135,7 @@ function activate(context) {
             context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(function (ed) {
                 try {
                     if (!ed || !ed.document || ed.document.languageId !== 'cpp') return;
-                    const conf = vscode.workspace.getConfiguration('cf-training-tools');
+                    const conf = vscode.workspace.getConfiguration('algorithm-training-tool');
                     if (conf.get('autoStatementPreview') === false) return;
                     const mdPath = siblingMarkdown(ed.document.fileName);
                     if (!fs.existsSync(mdPath)) return;
@@ -1926,40 +2153,45 @@ function activate(context) {
     } catch (e) { /* ignore */ }
 
     const map = {
-        'cfTraining.menu': cmdMenu,
-        'cfTraining.plan': cmdPlan,
-        'cfTraining.pullContest': cmdPullContest,
-        'cfTraining.pullProblem': cmdPullProblem,
-        'cfTraining.cfLogin': cmdCfLogin,
-        'cfTraining.loginCodeforces': function () { return cmdPlatformLogin('codeforces'); },
-        'cfTraining.loginLuogu': function () { return cmdPlatformLogin('luogu'); },
-        'cfTraining.loginNowcoder': function () { return cmdPlatformLogin('nowcoder'); },
-        'cfTraining.loginAtcoder': function () { return cmdPlatformLogin('atcoder'); },
-        'cfTraining.accountStatus': cmdAccountStatus,
-        'cfTraining.clearCookie': cmdClearCookie,
-        'cfTraining.openCookieFolder': cmdOpenCookieFolder,
-        'cfTraining.cfLoginCheck': cmdCfLoginCheck,
-        'cfTraining.cfLogout': cmdCfLogout,
-        'cfTraining.pullTemplate': cmdPullTemplate,
-        'cfTraining.openPlan': cmdOpenPlan,
-        'cfTraining.openRedo': cmdOpenRedo,
-        'cfTraining.aiHint': cmdAiHint,
-        'cfTraining.aiAsk': cmdAiAsk,
-        'cfTraining.aiReview': cmdAiReview,
-        'cfTraining.aiTranslate': cmdAiTranslate,
-        'cfTraining.aiConfig': cmdAiConfig,
-        'cfTraining.aiSettings': cmdAiOpenSettings,
-        'cfTraining.aiTest': cmdAiTest,
-        'cfTraining.reviewLatest': cmdReviewLatest,
-        'cfTraining.reviewInput': cmdReviewInput,
-        'cfTraining.statementOpen': cmdStatementOpen,
-        'cfTraining.statementNow': cmdStatementNow,
-        'cfTraining.sampleTests': cmdSampleTests,
-        'cfTraining.submit': cmdSubmit,
-        'cfTraining.samples': cmdSamples,
-        'cfTraining.build': cmdBuild,
-        'cfTraining.setHandle': cmdSetHandle,
-        'cfTraining.openDoc': cmdOpenDoc
+        'algorithmTraining.menu': cmdMenu,
+        'algorithmTraining.plan': cmdPlan,
+        'algorithmTraining.pullContest': cmdPullContest,
+        'algorithmTraining.pullProblem': cmdPullProblem,
+        'algorithmTraining.cfLogin': cmdCfLogin,
+        'algorithmTraining.loginCodeforces': function () { return cmdPlatformLogin('codeforces'); },
+        'algorithmTraining.loginLuogu': function () { return cmdPlatformLogin('luogu'); },
+        'algorithmTraining.loginNowcoder': function () { return cmdPlatformLogin('nowcoder'); },
+        'algorithmTraining.loginAtcoder': function () { return cmdPlatformLogin('atcoder'); },
+        'algorithmTraining.accountStatus': cmdAccountStatus,
+        'algorithmTraining.clearCookie': cmdClearCookie,
+        'algorithmTraining.openCookieFolder': cmdOpenCookieFolder,
+        'algorithmTraining.cfLoginCheck': cmdCfLoginCheck,
+        'algorithmTraining.cfLogout': cmdCfLogout,
+        'algorithmTraining.pullTemplate': cmdPullTemplate,
+        'algorithmTraining.openPlan': cmdOpenPlan,
+        'algorithmTraining.openRedo': cmdOpenRedo,
+        'algorithmTraining.aiHint': cmdAiHint,
+        'algorithmTraining.aiAsk': cmdAiAsk,
+        'algorithmTraining.aiReview': cmdAiReview,
+        'algorithmTraining.aiTranslate': cmdAiTranslate,
+        'algorithmTraining.aiConfig': cmdAiConfig,
+        'algorithmTraining.aiSettings': cmdAiOpenSettings,
+        'algorithmTraining.aiTest': cmdAiTest,
+        'algorithmTraining.reviewLatest': cmdReviewLatest,
+        'algorithmTraining.reviewInput': cmdReviewInput,
+        'algorithmTraining.statementOpen': cmdStatementOpen,
+        'algorithmTraining.statementNow': cmdStatementNow,
+        'algorithmTraining.sampleTests': cmdSampleTests,
+        'algorithmTraining.submit': cmdSubmit,
+        'algorithmTraining.samples': cmdSamples,
+        'algorithmTraining.build': cmdBuild,
+        'algorithmTraining.setHandle': cmdSetHandle,
+        'algorithmTraining.openDoc': cmdOpenDoc,
+        'algorithmTraining.companion': cmdCompanion,
+        'algorithmTraining.setJudgeHandle': cmdSetJudgeHandle,
+        'algorithmTraining.aiDebug': cmdAiDebug,
+        'algorithmTraining.aiPseudo': cmdAiPseudocode,
+        'algorithmTraining.aiEditorial': cmdAiEditorial
     };
     Object.keys(map).forEach(function (id) {
         context.subscriptions.push(vscode.commands.registerCommand(id, map[id]));
@@ -1969,16 +2201,18 @@ function activate(context) {
     samplesProvider = new SamplesViewProvider(context.extensionUri || vscode.Uri.file(__dirname));
     if (vscode.window.registerWebviewViewProvider) {
         context.subscriptions.push(vscode.window.registerWebviewViewProvider(
-            'cfTraining.main',
+            'algorithmTraining.main',
             sidebarProvider,
             { webviewOptions: { retainContextWhenHidden: true } }
         ));
         context.subscriptions.push(vscode.window.registerWebviewViewProvider(
-            'cfTraining.samples',
+            'algorithmTraining.samples',
             samplesProvider,
             { webviewOptions: { retainContextWhenHidden: true } }
         ));
     }
+
+    try { startCompanionServer(); } catch (e) { /* ignore */ }
 
     try {
         ['**/training/plan.json', '**/training/ai-config.json'].forEach(function (pattern) {
@@ -1992,6 +2226,7 @@ function activate(context) {
 }
 
 function deactivate() {
+    try { if (companionServer) companionServer.close(); } catch (e) { /* ignore */ }
     if (output) output.dispose();
     if (statusBar) statusBar.dispose();
 }

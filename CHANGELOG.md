@@ -1,5 +1,35 @@
 # 更新日志
 
+## 0.12.0
+
+- 新增 AI 训练功能：
+  - **AI 找错**：读取题面/当前代码 + 错误症状，定位最可能 bug、验证方法、最小修改建议（不直接给完整代码）
+  - **AI 审思路**：输入简要伪代码/口胡，判断可行性、反例、复杂度、结论（能不能直接写）
+  - **AI 题解**：根据题面生成题意/关键观察/算法/正确性/复杂度/易错点/类似题
+- 新增**五平台 handle 设置**：Codeforces / 洛谷 / 牛客 / LeetCode / AtCoder，保存在 `training/handles.json`，账号区显示
+- 训练面板 AI 区新增对应按钮
+- 等待动画沿用 VS Code 进度提示（AI 调用时可取消）
+
+## 0.11.0
+
+- **项目/扩展整体更名为 `algorithm-training-tool` / Algorithm Training Tool / 算法训练工具**
+  - 扩展 ID：`waityyy.algorithm-training-tool`
+  - 命令前缀：`algorithmTraining.*`
+  - 视图容器/视图 ID：`algorithmTrainingSidebar` / `algorithmTraining.main` / `algorithmTraining.samples`
+  - 设置命名空间：`algorithm-training-tool.*`
+  - 源码目录：`tools/vscode-extension/algorithm-training-tool`
+- 新增 Competitive Companion 接收器（端口 27121）：浏览器点 Companion 的「+」即可接收题面样例，不依赖 Cookie/curl；自动生成 `<题号>.cpp/.json/.md`，样例自测面板直接可读
+
+## 0.10.0
+
+- 新增 **Competitive Companion 接收器**（端口 27121）：浏览器里打开题目页，点 Companion 的「+」，题目/样例直接写进工作区
+  - 不经过 curl、不需要 Cookie，CF Gym / 洛谷 / AtCoder 等只要 Companion 能解析的页面都能用
+  - 自动生成 `<题号>.cpp`（按 new.cpp 模板）、`<题号>.json`（样例，样例自测可直接读）、`<题号>.md`（标题/限制/样例）
+  - 自动按平台建目录：CF Gym → `codeforces/gym<id>`，CF 正赛 → `codeforces/<group>`，AtCoder → `atcoder/<contest>`，洛谷 → `luogu/...`，牛客 → `nowcoder/...`
+  - 面板「快速开始 → Companion 接收」显示端口/状态
+- 新增 `tools/companion-data.js`（接收数据 → 文件，独立可测试）
+- 默认端口可在设置 `algorithm-training-tool.companion.port` 修改
+
 ## 0.9.8
 
 - 明确区分 Cloudflare 403 和 Cookie 错误：CF 现在对 curl 直接返回 JS 挑战（匿名请求也一样），Cookie 登录检查会提示「Cloudflare 403，不是账号错误」
@@ -50,7 +80,7 @@
 ## 0.9.1
 
 - **训练面板整体 UI 重排**：
-  - 顶部新增品牌区（CF 训练工具 + 四平台副标题）
+  - 顶部新增品牌区（算法训练工具 + 四平台副标题）
   - 状态胶囊：handle / AI / Gym（Gym 会提示是否需要 CF Cookie）
   - 账号胶囊行：CF / 洛谷 / 牛客 / AtCoder 昵称状态
   - 当前题单改成独立卡片（题数徽章、难度/弱项信息、题目列表、刷新/完整题单/重做队列）
@@ -89,12 +119,12 @@
 ## 0.7.6
 
 - **修复「运行此测试」报错**：`runOne` 里的局部变量 `output` 遮蔽了全局输出通道，调用 `output.appendLine` 时把字符串当通道用，导致 `output.appendLine is not a function`；「运行全部测试」没有这个遮蔽所以正常
-- 单个测试运行恢复；无结果/异常会在「CF 训练工具」输出面板记录日志
+- 单个测试运行恢复；无结果/异常会在「算法训练工具」输出面板记录日志
 
 ## 0.7.5
 
 - 修复单个测试点运行在某些情况下报错的问题：结果列表长度与当前测试点不一致时重建结果骨架；测试列表为空时先刷新
-- 样例面板命令异常会写入「CF 训练工具」输出日志（`[samples] ... ERROR` 带堆栈），便于定位
+- 样例面板命令异常会写入「算法训练工具」输出日志（`[samples] ... ERROR` 带堆栈），便于定位
 - 无结果时给出明确提示
 
 ## 0.7.4
@@ -145,7 +175,7 @@
 
 ## 0.6.5
 
-- 新增 **抓取单个题目**：面板「📥 抓取单个题目」/ 命令 `cfTraining.pullProblem`
+- 新增 **抓取单个题目**：面板「📥 抓取单个题目」/ 命令 `algorithmTraining.pullProblem`
   - 支持 Codeforces / AtCoder / 洛谷 / 牛客单题链接
   - 自动生成题面 md、按模板生成 cpp、`.cph` 样例缓存、结构化 json
   - 拉完自动打开 cpp + 题面 md 两栏
@@ -155,18 +185,18 @@
 
 - 打开题目时**强制两栏布局**：左侧 `.cpp`、右侧题面 `.md` 预览（`editorLayoutTwoColumns` + `markdown.showPreviewToSide`，焦点回到 cpp）
 - 「打开当前题面预览」和抓取后「选择题目打开」也走同一布局
-- 新增设置 `cf-training-tools.forceTwoColumnSplit`（默认 true，设为 false 则不调整布局）
+- 新增设置 `algorithm-training-tool.forceTwoColumnSplit`（默认 true，设为 false 则不调整布局）
 ## 0.6.3
 
 - 抓取整场比赛时，进度通知增加**取消按钮**：取消会终止 node 进程树（已生成的 md/cpp 保留）
 - 抓取完成后可选「选择题目打开」：自动打开该题 `.cpp` 并把题面 `.md` 分屏到侧边
-- 打开有同名 `.md` 的 `.cpp` 时自动分屏题面预览；新增设置 `cf-training-tools.autoStatementPreview`（默认 true）
+- 打开有同名 `.md` 的 `.cpp` 时自动分屏题面预览；新增设置 `algorithm-training-tool.autoStatementPreview`（默认 true）
 
 ## 0.6.2
 
 - 新增 **初始模板接口**：拉题生成 `.cpp` 的模板可配置
   - 命令行 `--template=<文件>`
-  - 插件设置 `cf-training-tools.pull.template` / 面板「🧩 设置拉题初始模板」
+  - 插件设置 `algorithm-training-tool.pull.template` / 面板「🧩 设置拉题初始模板」
   - `training/pull-config.json`（示例 `training/pull-config.example.json`）
   - 默认 `new.cpp`
 - `pull-contest.js` 每道题额外生成 `<题号>.json`（结构化题面数据：title / url / group / 时限 / 内存 / 样例），整场生成 `contest.json`（题目索引 + 模板 + 生成时间）
@@ -194,7 +224,7 @@
 
 ## 0.5.2
 
-- 拉题自动预览只对当前正在编辑的那道题生效；新增 VS Code 设置 `cf-training-tools.autoPreview`
+- 拉题自动预览只对当前正在编辑的那道题生效；新增 VS Code 设置 `algorithm-training-tool.autoPreview`
 
 ## 0.5.1
 
@@ -204,7 +234,7 @@
 ## 0.5.0
 
 - AI 设置入口补齐：面板「⚙️ 设置 AI API / 🔌 测试 AI 连接 / 🧰 在 VS Code 设置中编辑」
-- 新增 VS Code 原生设置 `cf-training-tools.ai.baseUrl / model / apiKey / temperature`（与 `training/ai-config.json` 双向同步）
+- 新增 VS Code 原生设置 `algorithm-training-tool.ai.baseUrl / model / apiKey / temperature`（与 `training/ai-config.json` 双向同步）
 - 左下角状态栏新增 AI 配置状态（点击可改）
 
 ## 0.4.1
@@ -219,7 +249,7 @@
 
 ## 0.3.0
 
-- 活动栏「CF 训练」面板：当前题单显示、可点击题目链接、分组按钮
+- 活动栏「算法训练」面板：当前题单显示、可点击题目链接、分组按钮
 - 多平台周题单（Codeforces + AtCoder + 洛谷）
 
 ## 0.2.x

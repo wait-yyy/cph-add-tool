@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.1.0
+
+- 学习 CPH 提交协议：实现 `/getSubmit` 端点（`cph-submit: true`），兼容 CPH Submit 浏览器扩展
+- 面板新增「📨 CPH 提交（浏览器插件）」：把当前代码/题号/语言交给浏览器扩展，自动打开 Codeforces 提交页并填入
+- 需要安装 cph-submit 浏览器扩展（Chrome/Firefox），并保持浏览器打开
+- License 改为 GPL-3.0-only（与 CPH 参考实现一致）
+
 ## 1.0.0
 
 - 首个 Marketplace 正式版（新扩展名 `algorithm-training-tool`）

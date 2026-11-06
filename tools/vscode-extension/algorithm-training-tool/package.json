@@ -2,7 +2,7 @@
     "name":  "algorithm-training-tool",
     "displayName":  "Algorithm Training Tool（算法训练）",
     "description":  "算法竞赛训练工具：拉题/题面、样例自测、AI 找错/审思路/题解/调题单、同题 AC、提交、五平台账号、Competitive Companion 接收器",
-    "version":  "1.0.0",
+    "version":  "1.1.0",
     "publisher":  "waityyy",
     "repository":  {
                        "type":  "git",
@@ -272,6 +272,11 @@
                                              "command":  "algorithmTraining.browserSubmitAuto",
                                              "title":  "浏览器自动提交（Edge/Chrome）",
                                              "category":  "算法训练"
+                                         },
+                                         {
+                                             "command":  "algorithmTraining.cphSubmit",
+                                             "title":  "CPH 提交（浏览器插件）",
+                                             "category":  "算法训练"
                                          }
                                      ],
                         "menus":  {
@@ -330,7 +335,12 @@
                                                                                                                 "type":  "number",
                                                                                                                 "default":  27121,
                                                                                                                 "description":  "Competitive Companion 接收端口（默认 27121；如果端口被占用可在 Companion 扩展里改 custom port）"
-                                                                                                            }
+                                                                                                            },
+                                                                 "algorithm-training-tool.cphSubmit.languageId":  {
+                                                                                                                      "type":  "number",
+                                                                                                                      "default":  54,
+                                                                                                                      "description":  "CPH 提交使用的 Codeforces 语言 ID（54 = GNU G++17，89 = GNU G++23 视站点而定）"
+                                                                                                                  }
                                                              }
                                           }
                     },
@@ -350,5 +360,5 @@
                  "url":  "https://gitcode.com/2403_86825600/cph-add-tool/issues"
              },
     "icon":  "media/icon.png",
-    "license":  "MIT"
+    "license":  "GPL-3.0-only"
 }

@@ -20,6 +20,7 @@ let lastActiveCpp = null;
 let layoutingCpp = null;
 let companionServer = null;
 let companionPort = 0;
+let pendingCphSubmit = null;
 
 function workspaceRoot() {
     const folders = vscode.workspace.workspaceFolders;
@@ -994,6 +995,20 @@ function startCompanionServer() {
             res.end();
             return;
         }
+        // CPH Submit browser extension polls this endpoint (www.cph-submit / cph-submit header)
+        if (req.method === 'GET' && /^\/getSubmit(?:\?|$)/.test(String(req.url || ''))) {
+            const wantsCph = String(req.headers['cph-submit'] || '').toLowerCase() === 'true';
+            res.writeHead(200, Object.assign({ 'Content-Type': 'application/json' }, cors));
+            if (wantsCph && pendingCphSubmit) {
+                const payload = pendingCphSubmit;
+                pendingCphSubmit = null;
+                if (output) output.appendLine('[cph-submit] served submission for ' + payload.problemName);
+                res.end(JSON.stringify(payload));
+            } else {
+                res.end(JSON.stringify({ empty: true }));
+            }
+            return;
+        }
         if (req.method !== 'POST') {
             res.writeHead(404, cors);
             res.end('not found');
@@ -1149,6 +1164,39 @@ async function cmdBrowserSubmitAuto() {
     if (pick === '打开提交记录' && data.submissionUrl) {
         try { await vscode.env.openExternal(vscode.Uri.parse(data.submissionUrl)); } catch (e) { /* ignore */ }
     }
+}
+
+function cphLanguageId() {
+    try {
+        const v = vscode.workspace.getConfiguration('algorithm-training-tool').get('cphSubmit.languageId');
+        return Number(v) || 54;
+    } catch (e) {
+        return 54;
+    }
+}
+
+async function cmdCphSubmit() {
+    const cpp = activeCppPath();
+    if (!cpp) return vscode.window.showWarningMessage('请先打开一道题的 .cpp 文件');
+    await saveDocumentForPath(cpp);
+    const res = await runNode('submit.js', [cpp, '--dry-run'], '准备 CPH 提交…', { cancellable: true });
+    const data = parseLastJson(String(res.stdout || ''));
+    if (!data || !data.url) return vscode.window.showErrorMessage('找不到题目链接（缺少同目录 <题号>.json / .cph）');
+    if (data.platform !== 'codeforces') return vscode.window.showWarningMessage('CPH Submit 目前只支持 Codeforces');
+    const m = /codeforces\.com\/(contest|gym)\/(\d+)\/problem\/([A-Za-z0-9]+)/i.exec(String(data.url));
+    if (!m) return vscode.window.showWarningMessage('无法解析 Codeforces 比赛/题号');
+    const code = fs.readFileSync(cpp, 'utf8');
+    pendingCphSubmit = {
+        problemName: m[2] + m[3],
+        languageId: String(cphLanguageId()),
+        sourceCode: code,
+        url: String(data.url)
+    };
+    if (output) output.appendLine('[cph-submit] queued ' + pendingCphSubmit.problemName + ' lang=' + pendingCphSubmit.languageId);
+    vscode.window.showInformationMessage(
+        '已准备 CPH 提交：' + pendingCphSubmit.problemName + '。请保持浏览器和 CPH Submit 扩展开启（每 3 秒轮询），它会自动打开提交页并填入代码。',
+        '复制说明'
+    );
 }
 
 async function cmdSubmitBrowser() {
@@ -2007,6 +2055,7 @@ function samplesHtml(state) {
         '<button id="submit">🚀 提交到 OJ</button>' +
         '<button id="submitBrowser">🌐 浏览器提交（复制代码）</button>' +
         '<button id="submitAuto">🖥 自动提交（浏览器）</button>' +
+        '<button id="submitCph">📨 CPH 提交（浏览器插件）</button>' +
         '<h3>样例</h3>' +
         '<div id="cases-sample">' + sampleCases + '</div>' +
         '<h3>自定义测试</h3>' +
@@ -2025,6 +2074,7 @@ function samplesHtml(state) {
         'document.getElementById("submit").addEventListener("click",function(){vscode.postMessage({command:"submit"});});' +
         'document.getElementById("submitBrowser").addEventListener("click",function(){vscode.postMessage({command:"submitBrowser"});});' +
         'document.getElementById("submitAuto").addEventListener("click",function(){vscode.postMessage({command:"submitAuto"});});' +
+        'document.getElementById("submitCph").addEventListener("click",function(){vscode.postMessage({command:"submitCph"});});' +
         'document.getElementById("add").addEventListener("click",function(){vscode.postMessage({command:"addCustom",name:document.getElementById("cname").value,input:document.getElementById("cin").value,output:document.getElementById("cout").value});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.runone"),function(b){b.addEventListener("click",function(){var i=b.getAttribute("data-i");vscode.postMessage({command:"runOne",kind:b.getAttribute("data-kind"),index:Number(b.getAttribute("data-index")),input:valById(i,"tin"),output:valById(i,"tout")});});});' +
         'Array.prototype.forEach.call(document.querySelectorAll("button.del"),function(b){b.addEventListener("click",function(){vscode.postMessage({command:"deleteCustom",index:Number(b.getAttribute("data-index"))});});});' +
@@ -2072,6 +2122,7 @@ class SamplesViewProvider {
                 if (msg.command === 'submit') return await vscode.commands.executeCommand('algorithmTraining.submit', self.cpp);
                 if (msg.command === 'submitBrowser') return await vscode.commands.executeCommand('algorithmTraining.submitBrowser');
                 if (msg.command === 'submitAuto') return await vscode.commands.executeCommand('algorithmTraining.browserSubmitAuto');
+                if (msg.command === 'submitCph') return await vscode.commands.executeCommand('algorithmTraining.cphSubmit');
             } catch (e) {
                 if (output && output.appendLine) output.appendLine('[samples] ERROR ' + (e && e.stack ? e.stack : String(e)));
                 vscode.window.showErrorMessage('样例自测失败：' + String(e && e.message ? e.message : e));
@@ -2435,6 +2486,7 @@ function activate(context) {
         'algorithmTraining.aiDebug': cmdAiDebug,
         'algorithmTraining.browserLogin': cmdBrowserLogin,
         'algorithmTraining.browserSubmitAuto': cmdBrowserSubmitAuto,
+        'algorithmTraining.cphSubmit': cmdCphSubmit,
         'algorithmTraining.submitBrowser': cmdSubmitBrowser,
         'algorithmTraining.aiPseudo': cmdAiPseudocode,
         'algorithmTraining.aiEditorial': cmdAiEditorial,

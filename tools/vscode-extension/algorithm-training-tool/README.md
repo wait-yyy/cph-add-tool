@@ -87,6 +87,17 @@ Gym/私有比赛推荐用这个方式，不需要把 Cookie 交给脚本。
 - 支持 **Codeforces（正赛/Gym）、洛谷、AtCoder** 自动提交；牛客暂不支持自动提交
 - 自动提交需要对应平台 Cookie；CF/洛谷被反爬拦截时建议用 **🌐 浏览器提交（复制代码）**：自动复制当前代码并打开提交页，在网页粘贴提交
 - 提交成功显示提交记录链接，可在浏览器打开
+## CPH 提交（浏览器插件，推荐）
+
+与 CPH 相同的提交方式：
+
+1. 浏览器安装 [cph-submit](https://github.com/agrawal-d/cph-submit)（Chrome / Firefox）
+2. 保持浏览器窗口打开（扩展每 3 秒轮询本地 `http://localhost:27121/getSubmit`）
+3. VS Code 打开题目 `.cpp`，点样例面板 **📨 CPH 提交（浏览器插件）**
+4. 扩展收到代码/题号/语言后自动打开 Codeforces 提交页并填入，确认提交
+
+本插件实现了兼容的 `/getSubmit` 端点；语言 ID 可在设置 `algorithm-training-tool.cphSubmit.languageId` 调整（默认 54 = GNU G++17）。
+
 ## 浏览器登录 / 自动提交（实验性）
 
 - 面板「账号 → 浏览器登录」选择平台，工具会用本机 Edge/Chrome 的独立 profile（`training/browser-profile/`）打开登录页；登录态保存在该 profile

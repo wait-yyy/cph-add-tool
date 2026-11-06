@@ -1,5 +1,10 @@
 # 更新日志
 
+## 1.1.1
+
+- 文档补充 CPH 提交（cph-submit 浏览器扩展）使用说明
+
+
 ## 1.1.0
 
 - 学习 CPH 提交协议：实现 `/getSubmit` 端点（`cph-submit: true`），兼容 CPH Submit 浏览器扩展
